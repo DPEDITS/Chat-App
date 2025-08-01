@@ -88,7 +88,7 @@ cd ../server
 npm install
 ```
 ---
-Configure Environment Variables
+### Configure Environment Variables
 **Create a .env file inside the server directory with the following variables (replace the placeholder values):
 ```bash
 MONGO_URI=your_mongodb_connection_string
@@ -98,7 +98,7 @@ CLOUDINARY_API_KEY=your_cloudinary_api_key
 CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 ```
 ---
-###Enable ES Modules
+### Enable ES Modules
 **Ensure your package.json in the server folder includes the following to enable ES module syntax:
 ```bash
 {
@@ -106,7 +106,7 @@ CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 }
 ```
 ---
-###Running the Application
+### Running the Application
 **Start Backend Server
 ```bash
 cd server
@@ -114,13 +114,13 @@ npm run dev
 ```
 Note: This assumes your package.json has a dev script using nodemon.
 ---
-###Start Frontend Server
+### Start Frontend Server
 ```bash
 cd ../client
 npm run dev
 ```
 Open the URL displayed in the terminal (typically http://localhost:5173) to access the app.
 ---
-###Contribution
+### Contribution
 
 **Feel free to fork the project, open issues, or submit pull requests!
