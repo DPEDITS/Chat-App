@@ -3,31 +3,38 @@ import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
 //Signup a New User
-export const signup = async(req,res)=>{
-    const {fullName, email, password, bio}= req.body;
+export const signup = async (req, res) => {
+    const { fullName, email, password, bio } = req.body;
+  
     try {
-        if(!fullName || !email || !password || !bio){
-            return req.json({success:false, message:"All fields are required"});
-        }
-        const User= await User.findOne({email});
-        if(User){
-            return res.json({success:false, message:"User already exists"});
-        }
-        const salt=await bcrypt.genSalt(10);
-        const hashedPassword=await bcrypt.hash(password,salt);
-        const newUser= await User.create({
-            fullName,
-            email,
-            password:hashedPassword,
-            bio
-        })
-        const token= generateToken(newUser._id);
-        res.json({success:true, message:"User created successfully", token, userData:newUser});
+      if (!fullName || !email || !password || !bio) {
+        return res.json({ success: false, message: "All fields are required" });
+      }
+  
+      const existingUser = await User.findOne({ email }); // ✅ FIXED HERE
+  
+      if (existingUser) {
+        return res.json({ success: false, message: "User already exists" });
+      }
+  
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+  
+      const newUser = await User.create({
+        fullName,
+        email,
+        password: hashedPassword,
+        bio,
+      });
+  
+      const token = generateToken(newUser._id);
+      res.json({ success: true, message: "User created successfully", token, userData: newUser });
     } catch (error) {
-        console.log("Error in Signup:", error.message);
-        res.json({success:false, message:error.message});
+      console.log("Error in Signup:", error.message);
+      res.json({ success: false, message: error.message });
     }
-}
+  };
+  
 
 //Controller to login a user
 export const login=async(req,res)=>{

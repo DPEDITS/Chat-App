@@ -25,7 +25,7 @@ io.on("connection",(socket)=>{
     //Handle User Disconnection
     socket.on("disconnect",()=>{console.log("User Disconnected:", userId);
     delete userSocketMap[userId];
-    io.emit(getOnlineUsers, Object.keys(userSocketMap));
+    io.emit("getOnlineUsers", Object.keys(userSocketMap));
     })
 
 });
