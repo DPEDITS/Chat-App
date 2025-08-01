@@ -1,115 +1,125 @@
-QuickChat
+# QuickChat
+
 <p align="center">
-<img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite Badge" />
-<img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React Badge" />
-<img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS Badge" />
-<img src="https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js Badge" />
-<img src="https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white" alt="Express.js Badge" />
-<img src="https://img.shields.io/badge/MongoDB-4EA94B?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB Badge" />
+  <img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite Badge" />
+  <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React Badge" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS Badge" />
+  <img src="https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js Badge" />
+  <img src="https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white" alt="Express.js Badge" />
+  <img src="https://img.shields.io/badge/MongoDB-4EA94B?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB Badge" />
 </p>
 
-A real-time chat application built from scratch to showcase modern full-stack development skills. QuickChat provides a platform for users to connect instantly through secure and responsive messaging.
+---
 
-🔗 Live Demo: https://quick-chat-nolx.onrender.com/
+## Overview
 
-Key Features
-Real-time Messaging: Utilizes Socket.io for smooth, instant communication.
+**QuickChat** is a real-time chat application built from scratch to showcase modern full-stack development skills. It allows users to connect instantly through secure and responsive messaging.
 
-Secure Authentication: Passwords are securely hashed with bcryptjs for user privacy and security.
+🔗 Live Demo: [https://quick-chat-nolx.onrender.com/](https://quick-chat-nolx.onrender.com/)
 
-Media Sharing: Users can share media files to enhance the messaging experience.
+---
 
-Responsive UI: The frontend is built with Vite and React, styled with Tailwind CSS for a fast and adaptable interface.
+## Key Features
 
-User Profiles: Users can update their profiles and personal information.
+- **Real-time Messaging:** Powered by Socket.io for smooth and instant communication.
+- **Secure Authentication:** Passwords are hashed with bcryptjs to ensure user privacy.
+- **Media Sharing:** Users can share media files within chats.
+- **Responsive UI:** Frontend built with Vite, React, and styled using Tailwind CSS.
+- **User Profiles:** Users can update their profile information seamlessly.
 
-Tech Stack
-Frontend
-Vite: Fast build tool for a modern web development experience.
+---
 
-React: A component-based library for building user interfaces.
+## Tech Stack
 
-Tailwind CSS: A utility-first CSS framework for rapid UI development.
+### Frontend
 
-React Router DOM: Manages client-side routing and navigation.
+- **Vite** — Fast modern build tool  
+- **React** — UI library  
+- **Tailwind CSS** — Utility-first CSS framework  
+- **React Router DOM** — Client-side routing  
+- **axios** — HTTP client  
+- **socket.io-client** — Real-time communication  
+- **react-hot-toast** — Notifications
 
-axios: A promise-based HTTP client for API requests.
+### Backend
 
-socket.io-client: The client-side library for real-time communication with the backend.
+- **Node.js** — JavaScript runtime  
+- **Express.js** — Web server framework  
+- **Socket.io** — Real-time, bidirectional communication  
+- **MongoDB** — NoSQL database  
+- **Mongoose** — MongoDB ODM  
+- **bcryptjs** — Password hashing  
+- **jsonwebtoken** — JWT authentication  
+- **Cloudinary** — Media upload and management  
+- **CORS** — Cross-Origin Resource Sharing middleware  
+- **dotenv** — Environment variable management  
+- **Nodemon** — Development server auto-restart
 
-react-hot-toast: A library for lightweight and accessible notifications.
+---
 
-Backend
-Node.js: A JavaScript runtime for server-side development.
+## Getting Started
 
-Express.js: A flexible Node.js framework for building the server and APIs.
+### Prerequisites
 
-Socket.io: Enables real-time, bidirectional communication between the client and server.
+- Node.js and npm installed on your machine.
 
-MongoDB: A NoSQL database used to handle user data, messages, and media.
+---
 
-Mongoose: An object data modeling (ODM) library for MongoDB.
+### Installation
 
-bcryptjs: Used to securely hash and compare user passwords.
+1. **Clone the repository:**
 
-jsonwebtoken: Creates and verifies JSON Web Tokens for user authentication.
-
-Cloudinary: A cloud service for managing media uploads.
-
-CORS: A Node.js middleware for enabling cross-origin requests.
-
-Dotenv: A module for loading environment variables from a .env file.
-
-Nodemon: A development tool that automatically restarts the server on file changes.
-
-Getting Started
-Prerequisites
-Node.js and npm installed on your machine.
-
-Installation
-Clone the repository:
-
+```bash
 git clone https://github.com/DPEDITS/Chat-App.git
 cd Chat-App
+```
+---
 
-Set up the frontend:
-Navigate to the client directory and install the dependencies.
+### Setup Frontend
 
+```bash
 cd client
 npm install
-
-Set up the backend:
-Navigate to the server directory, install the dependencies, and create a .env file for your environment variables.
-
+```
+---
+### Setup Backend
+```bash
 cd ../server
 npm install
-
-Configure the backend environment variables:
-Create a .env file in the server directory and add the following variables, replacing the placeholder values with your own:
-
+```
+---
+Configure Environment Variables
+**Create a .env file inside the server directory with the following variables (replace the placeholder values):
+```bash
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
 CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
 CLOUDINARY_API_KEY=your_cloudinary_api_key
 CLOUDINARY_API_SECRET=your_cloudinary_api_secret
-
-To enable ES module syntax (import ... from ...), make sure your package.json file in the server directory includes the following line:
-
+```
+---
+###Enable ES Modules
+**Ensure your package.json in the server folder includes the following to enable ES module syntax:
+```bash
 {
   "type": "module"
 }
-
-Running the Application
-Start the backend server:
-From the server directory, run:
-
+```
+---
+###Running the Application
+**Start Backend Server
+```bash
+cd server
 npm run dev
-
-Note: This command assumes your package.json has a dev script that uses nodemon.
-
-Start the frontend development server:
-From the client directory, run:
-
+```
+Note: This assumes your package.json has a dev script using nodemon.
+---
+###Start Frontend Server
+```bash
+cd ../client
 npm run dev
-
-This will start the Vite development server. Open your browser and navigate to the address shown in the terminal (e.g., http://localhost:5173).
+```
+Open the URL displayed in the terminal (typically http://localhost:5173) to access the app.
+---
+###Contribution
+**Feel free to fork the project, open issues, or submit pull requests!
