@@ -72,7 +72,7 @@ export const ChatProvider = ({ children }) => {
     return () => socket.off("newMessage", handleNewMessage);
   }, [socket, selectedUser]);
 
-  // ------------------ VIDEO CALL ------------------
+  // ------------------ VIDEO CALL FUNCTIONS ------------------
   const startCall = async () => {
     if (!selectedUser) return toast.error("Select a user to call");
     setInCall(true);
@@ -153,10 +153,8 @@ export const ChatProvider = ({ children }) => {
     if (pc) pc.close();
     peerConnectionRef.current = null;
 
-    if (localVideoRef.current?.srcObject)
-      localVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
-    if (remoteVideoRef.current?.srcObject)
-      remoteVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+    localVideoRef.current?.srcObject?.getTracks().forEach((track) => track.stop());
+    remoteVideoRef.current?.srcObject?.getTracks().forEach((track) => track.stop());
   };
 
   // ------------------ SOCKET EVENTS ------------------
@@ -174,6 +172,7 @@ export const ChatProvider = ({ children }) => {
     };
   }, [socket]);
 
+  // ------------------ CONTEXT VALUE ------------------
   const value = {
     messages,
     users,

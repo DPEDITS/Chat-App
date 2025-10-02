@@ -7,30 +7,29 @@ import userRouter from "./routes/userRoutes.js";
 import messageRouter from "./routes/messageRoutes.js";
 import { Server } from "socket.io";
 
-// Create Express App and HTTP Server
+// -------------------- EXPRESS APP & HTTP SERVER --------------------
 const app = express();
 const server = http.createServer(app);
 
-// Initialize Socket.io Server
+// -------------------- SOCKET.IO SETUP --------------------
 export const io = new Server(server, {
-  cors: { origin: "*" },
+  cors: { origin: "*" }, // Allow all origins (adjust for production)
 });
 
-// Store Online Users
-export const userSocketMap = {}; // {userId: socketId}
+// Store online users: { userId: socketId }
+export const userSocketMap = {};
 
-// Socket.io Connection Handler
+// -------------------- SOCKET.IO CONNECTION --------------------
 io.on("connection", (socket) => {
   const userId = socket.handshake.query.userId;
   console.log("User Connected:", userId);
 
   if (userId) userSocketMap[userId] = socket.id;
 
-  // Emit all online users to all connected clients
+  // Broadcast online users
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-  // ---------------- Video Call Signaling ----------------
-  // Offer from caller
+  // ----- VIDEO CALL SIGNALING -----
   socket.on("offer", ({ to, offer }) => {
     const targetSocketId = userSocketMap[to];
     if (targetSocketId) {
@@ -38,7 +37,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Answer from callee
   socket.on("answer", ({ to, answer }) => {
     const targetSocketId = userSocketMap[to];
     if (targetSocketId) {
@@ -46,7 +44,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ICE candidates
   socket.on("ice-candidate", ({ to, candidate }) => {
     const targetSocketId = userSocketMap[to];
     if (targetSocketId) {
@@ -54,7 +51,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Handle User Disconnection
+  // Handle disconnection
   socket.on("disconnect", () => {
     console.log("User Disconnected:", userId);
     delete userSocketMap[userId];
@@ -62,20 +59,21 @@ io.on("connection", (socket) => {
   });
 });
 
-// Middleware Setup
+// -------------------- MIDDLEWARE --------------------
 app.use(express.json({ limit: "4mb" }));
 app.use(cors());
 
-// Routes Setup
+// -------------------- ROUTES --------------------
 app.use("/api/status", (req, res) => res.send("Server is running"));
 app.use("/api/auth", userRouter);
 app.use("/api/messages", messageRouter);
 
-// Connect To MongoDB
+// -------------------- DATABASE CONNECTION --------------------
 await connectDB();
 
+// -------------------- START SERVER --------------------
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log("Server is running on PORT: " + PORT));
+server.listen(PORT, () => console.log(`Server is running on PORT: ${PORT}`));
 
-// Exporting server for Vercel
+// -------------------- EXPORT FOR DEPLOY --------------------
 export default server;
