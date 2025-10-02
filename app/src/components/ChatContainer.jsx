@@ -18,21 +18,19 @@ const ChatContainer = () => {
     inCall,
     localVideoRef,
     remoteVideoRef,
-    callUser,        // added for explicit video call
-    answerCall,      // handle incoming call
-    incomingCall,    // boolean if a call is incoming
-    callerPeerId,    // peerId of incoming caller
   } = useContext(ChatContext);
 
-  const { authUser, users, onlineUsers } = useContext(AuthContext);
+  const { authUser } = useContext(AuthContext);
 
   const scrollEnd = useRef();
   const [input, setInput] = useState("");
 
+  // Fetch messages when selectedUser changes
   useEffect(() => {
-    if (selectedUser) getMessages(selectedUser._id);
+    if (selectedUser?._id) getMessages(selectedUser._id);
   }, [selectedUser]);
 
+  // Scroll to bottom when messages update
   useEffect(() => {
     scrollEnd.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -55,7 +53,8 @@ const ChatContainer = () => {
     reader.readAsDataURL(file);
   };
 
-  if (!selectedUser)
+  // Show placeholder if no user is selected or authUser not loaded
+  if (!authUser?._id || !selectedUser?._id)
     return (
       <div className="flex flex-col items-center justify-center gap-2 text-gray-500 bg-white/10 max-md:hidden">
         <img src={assets.logo_icon} alt="" className="max-w-16" />
@@ -65,19 +64,16 @@ const ChatContainer = () => {
 
   return (
     <div className="h-full relative backdrop-blur-lg overflow-scroll">
-
       {/* Header */}
       <div className="flex items-center gap-3 py-3 mx-4 border-b border-stone-500">
         <img
-          src={selectedUser.profilePic || assets.avatar_icon}
+          src={selectedUser?.profilePic || assets.avatar_icon}
           alt=""
           className="w-8 rounded-full"
         />
         <p className="flex-1 text-lg text-white flex items-center gap-2">
-          {selectedUser.fullName}
-          {onlineUsers.includes(selectedUser._id) && (
-            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-          )}
+          {selectedUser?.fullName}
+          {selectedUser?.peerId && <span className="w-2 h-2 rounded-full bg-green-500"></span>}
         </p>
         <img
           onClick={() => setSelectedUser(null)}
@@ -85,12 +81,10 @@ const ChatContainer = () => {
           alt=""
           className="md:hidden max-w-7 cursor-pointer"
         />
-        {!inCall && (
-          <MdVideoCall
-            className="text-white text-2xl cursor-pointer max-md:hidden"
-            onClick={() => callUser(selectedUser._id)}
-          />
-        )}
+        <MdVideoCall
+          className="text-white text-2xl cursor-pointer max-md:hidden"
+          onClick={startCall}
+        />
         <img src={assets.help_icon} alt="" className="max-md:hidden max-w-5" />
       </div>
 
@@ -100,7 +94,7 @@ const ChatContainer = () => {
           <div
             key={idx}
             className={`flex items-end gap-2 ${
-              msg.senderId === authUser._id ? "justify-end" : "flex-row-reverse"
+              msg.senderId === authUser?._id ? "justify-end" : "flex-row-reverse"
             }`}
           >
             {msg.image ? (
@@ -112,7 +106,7 @@ const ChatContainer = () => {
             ) : (
               <p
                 className={`p-2 max-w-[200px] md:text-sm font-light rounded-lg mb-8 break-all bg-violet-500/30 text-white ${
-                  msg.senderId === authUser._id ? "rounded-br-none" : "rounded-bl-none"
+                  msg.senderId === authUser?._id ? "rounded-br-none" : "rounded-bl-none"
                 }`}
               >
                 {msg.text}
@@ -121,7 +115,7 @@ const ChatContainer = () => {
             <div className="text-center text-xs">
               <img
                 src={
-                  msg.senderId === authUser._id
+                  msg.senderId === authUser?._id
                     ? authUser?.profilePic || assets.avatar_icon
                     : selectedUser?.profilePic || assets.avatar_icon
                 }
@@ -161,37 +155,17 @@ const ChatContainer = () => {
         </button>
       </form>
 
-      {/* Video Call Overlay */}
-      {(inCall || incomingCall) && (
+      {/* Video Call */}
+      {inCall && (
         <div className="absolute top-0 left-0 w-full h-full bg-black/70 flex flex-col items-center justify-center gap-3">
-          <video ref={localVideoRef} autoPlay muted className="w-40 rounded-md" />
-          <video ref={remoteVideoRef} autoPlay className="w-80 rounded-md" />
-
-          {incomingCall && !inCall && (
-            <div className="flex gap-4">
-              <button
-                className="p-2 bg-green-600 rounded-md text-white"
-                onClick={answerCall}
-              >
-                Answer
-              </button>
-              <button
-                className="p-2 bg-red-600 rounded-md text-white"
-                onClick={endCall}
-              >
-                Reject
-              </button>
-            </div>
-          )}
-
-          {inCall && (
-            <button
-              className="p-2 bg-red-600 rounded-md text-white"
-              onClick={endCall}
-            >
-              End Call
-            </button>
-          )}
+          {localVideoRef.current && <video ref={localVideoRef} autoPlay muted className="w-40 rounded-md" />}
+          {remoteVideoRef.current && <video ref={remoteVideoRef} autoPlay className="w-80 rounded-md" />}
+          <button
+            className="p-2 bg-red-600 rounded-md text-white"
+            onClick={endCall}
+          >
+            End Call
+          </button>
         </div>
       )}
     </div>
