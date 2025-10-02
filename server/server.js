@@ -38,9 +38,11 @@ export const userPeerMap = {};   // userId -> peerId
 
 io.on("connection", (socket) => {
   const userId = socket.handshake.query.userId;
+  console.log("User connected:", userId);
+
   if (userId) userSocketMap[userId] = socket.id;
 
-  // Update peer map
+  // Update peerId mapping
   socket.on("updatePeerId", ({ userId, peerId }) => {
     userPeerMap[userId] = peerId;
     io.emit("updatePeerIds", userPeerMap);
@@ -49,12 +51,10 @@ io.on("connection", (socket) => {
   // Broadcast online users
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-  // Handle calls
+  // Handle call
   socket.on("callUser", ({ to, fromPeerId }) => {
     const targetSocketId = userSocketMap[to];
-    if (targetSocketId) {
-      io.to(targetSocketId).emit("incomingCall", { fromPeerId });
-    }
+    if (targetSocketId) io.to(targetSocketId).emit("incomingCall", { fromPeerId });
   });
 
   socket.on("callEnded", ({ to }) => {
@@ -63,6 +63,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
+    console.log("User disconnected:", userId);
     delete userSocketMap[userId];
     delete userPeerMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
@@ -71,8 +72,8 @@ io.on("connection", (socket) => {
 
 // ------------------- PeerJS -------------------
 const peerServer = ExpressPeerServer(server, {
-  path: "/peerjs",
   debug: true,
+  path: "/peerjs", // only once
 });
 app.use("/peerjs", peerServer);
 
