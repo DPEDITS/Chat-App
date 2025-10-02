@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { AuthContext } from "./AuthContext";
 import toast from "react-hot-toast";
 import Peer from "peerjs";
-import { userPeerMap } from "../server"; // if needed for user-peer mapping
 
 export const ChatContext = createContext();
 
@@ -26,7 +25,10 @@ export const ChatProvider = ({ children }) => {
   const getUsers = async () => {
     try {
       const { data } = await axios.get("/api/messages/users");
-      if (data.success) setUsers(data.users);
+      if (data.success) {
+        setUsers(data.users);
+        setUnseenMessages(data.unseenMessages);
+      }
     } catch (error) {
       toast.error(error.message);
     }
@@ -46,18 +48,20 @@ export const ChatProvider = ({ children }) => {
     try {
       const { data } = await axios.post(`/api/messages/send/${selectedUser._id}`, messageData);
       if (data.success) setMessages((prev) => [...prev, data.newMessage]);
-    } catch (err) {
-      toast.error(err.message);
+      else toast.error(data.message);
+    } catch (error) {
+      toast.error(error.message);
     }
   };
 
-  // ------------------- Video Call -------------------
+  // ------------------- PeerJS & Video Call -------------------
   useEffect(() => {
     if (!authUser || !socket) return;
 
     const initPeer = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
           localVideoRef.current.muted = true;
@@ -65,10 +69,10 @@ export const ChatProvider = ({ children }) => {
         }
 
         const peer = new Peer(authUser._id, {
-          host: "chat-app-nmyd.onrender.com", // your backend domain
-          port: 443,
+          host: window.location.hostname,
+          port: window.location.protocol === "https:" ? 443 : 80,
           path: "/peerjs",
-          secure: true,
+          secure: window.location.protocol === "https:",
           config: {
             iceServers: [
               { urls: "stun:stun.l.google.com:19302" },
@@ -84,7 +88,7 @@ export const ChatProvider = ({ children }) => {
           socket.emit("updatePeerId", { userId: authUser._id, peerId: id });
         });
 
-        peer.on("call", (call) => {
+        peer.on("call", async (call) => {
           call.answer(stream);
           call.on("stream", (remoteStream) => {
             if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
@@ -94,11 +98,18 @@ export const ChatProvider = ({ children }) => {
           });
         });
       } catch (err) {
-        toast.error("Cannot access camera/microphone");
+        toast.error("Unable to access camera or microphone");
       }
     };
 
     initPeer();
+
+    // Listen for updated peer IDs from backend
+    socket.on("updatePeerIds", (peerData) => {
+      setUsers((prevUsers) =>
+        prevUsers.map((u) => ({ ...u, peerId: peerData[u._id] || null }))
+      );
+    });
 
     socket.on("callEnded", () => {
       endCall();
@@ -106,6 +117,7 @@ export const ChatProvider = ({ children }) => {
     });
 
     return () => {
+      socket.off("updatePeerIds");
       socket.off("callEnded");
       if (peerRef.current) peerRef.current.destroy();
     };
@@ -139,24 +151,17 @@ export const ChatProvider = ({ children }) => {
 
   const endCall = () => {
     setInCall(false);
+
     if (selectedUser) socket.emit("callEnded", { to: selectedUser._id });
+
     if (currentCallRef.current) currentCallRef.current.close();
     currentCallRef.current = null;
 
-    [localVideoRef, remoteVideoRef].forEach(ref => {
-      if (ref.current?.srcObject)
-        ref.current.srcObject.getTracks().forEach(track => track.stop());
-    });
+    if (localVideoRef.current?.srcObject)
+      localVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+    if (remoteVideoRef.current?.srcObject)
+      remoteVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
   };
-
-  // ------------------- Update users with peerIds -------------------
-  useEffect(() => {
-    const updatedUsers = users.map(u => ({
-      ...u,
-      peerId: u._id ? userPeerMap[u._id] || null : null,
-    }));
-    setUsers(updatedUsers);
-  }, [users, socket]);
 
   const value = {
     messages,
