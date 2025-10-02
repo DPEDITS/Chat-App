@@ -17,15 +17,8 @@ const ChatContainer = () => {
   const scrollEnd = useRef();
   const [input, setInput] = useState('');
 
-  // Fetch messages when a user is selected
   useEffect(() => { if (selectedUser) getMessages(selectedUser._id); }, [selectedUser]);
-
-  // Scroll to the latest message
-  useEffect(() => { 
-    if (scrollEnd.current && messages) {
-      scrollEnd.current.scrollIntoView({ behavior: 'smooth' });
-    } 
-  }, [messages]);
+  useEffect(() => { scrollEnd.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -54,13 +47,9 @@ const ChatContainer = () => {
           {selectedUser.fullName}
           {onlineUsers.includes(selectedUser._id) && <span className="w-2 h-2 rounded-full bg-green-500"></span>}
         </p>
-        <img
-          onClick={() => setSelectedUser(null)}
-          src={assets.arrow_icon}
-          alt=""
-          className='md:hidden max-w-7 cursor-pointer'
-        />
-        <MdVideoCall className="text-white text-2xl cursor-pointer max-md:hidden" onClick={startCall}/>
+        <img onClick={() => setSelectedUser(null)} src={assets.arrow_icon} alt="" className='md:hidden max-w-7 cursor-pointer' />
+
+        {selectedUser && <MdVideoCall className="text-white text-2xl cursor-pointer max-md:hidden" onClick={startCall}/>}
         <img src={assets.help_icon} alt="" className='max-md:hidden max-w-5' />
       </div>
 

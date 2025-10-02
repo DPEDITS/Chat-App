@@ -8,7 +8,7 @@ import messageRouter from "./routes/messageRoutes.js";
 import { Server } from "socket.io";
 import { ExpressPeerServer } from "peer";
 
-// Express app & HTTP server
+// ------------------- Express & HTTP -------------------
 const app = express();
 const server = http.createServer(app);
 
@@ -24,46 +24,49 @@ app.use("/api/messages", messageRouter);
 // MongoDB connection
 await connectDB();
 
-// Socket.io setup
+// ------------------- Socket.io -------------------
 export const io = new Server(server, {
   cors: { origin: "*" }
 });
-export const userSocketMap = {}; // { userId: socketId }
+
+// Maps
+export const userSocketMap = {}; // userId -> socketId
+export const userPeerMap = {};   // userId -> peerId
 
 io.on("connection", (socket) => {
   const userId = socket.handshake.query.userId;
   console.log("User connected:", userId);
+
   if (userId) userSocketMap[userId] = socket.id;
 
-  // Broadcast online users
+  // Send online users to everyone
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-  // Call signaling
-  socket.on("callUser", ({ to, fromPeerId }) => {
-    const targetSocketId = userSocketMap[to];
-    if (targetSocketId) {
-      io.to(targetSocketId).emit("incomingCall", { from: fromPeerId });
-    }
+  // Update Peer ID
+  socket.on("updatePeerId", ({ userId, peerId }) => {
+    userPeerMap[userId] = peerId;
   });
 
+  // Call ended
   socket.on("callEnded", ({ to }) => {
     const targetSocketId = userSocketMap[to];
     if (targetSocketId) io.to(targetSocketId).emit("callEnded");
   });
 
-  // Handle disconnect
+  // Disconnect
   socket.on("disconnect", () => {
     console.log("User disconnected:", userId);
     delete userSocketMap[userId];
+    delete userPeerMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
 });
 
-// PeerJS server
+// ------------------- PeerJS -------------------
 const peerServer = ExpressPeerServer(server, { path: "/peerjs", debug: true });
 app.use("/peerjs", peerServer);
 
-// Start server
+// ------------------- Start server -------------------
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => console.log(`Server running on PORT: ${PORT}`));
 
