@@ -1,117 +1,108 @@
-import React, { createContext, useEffect, useRef, useState } from "react";
-import { io } from "socket.io-client";
-import Peer from "peerjs";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
+import { AuthContext } from "./AuthContext";
+import toast from "react-hot-toast";
 
 export const ChatContext = createContext();
 
-export const ChatProvider = ({ children, authUser }) => {
-  const [onlineUsers, setOnlineUsers] = useState([]);
-  const [peerMap, setPeerMap] = useState({});
-  const [remoteStream, setRemoteStream] = useState(null);
-  const localVideoRef = useRef();
-  const remoteVideoRef = useRef();
-  const socketRef = useRef();
-  const peerRef = useRef();
-  const localStreamRef = useRef();
+export const ChatProvider = ({ children }) => {
+  const { socket, axios, authUser } = useContext(AuthContext);
+
+  const [messages, setMessages] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [unseenMessages, setUnseenMessages] = useState({}); // {userId: count}
+  const [inCall, setInCall] = useState(false);
+
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const peerConnectionRef = useRef(null);
+
+  // ------------------ CHAT FUNCTIONS ------------------
+  const getUsers = async () => {
+    try {
+      const { data } = await axios.get("/api/messages/users");
+      if (data.success) {
+        setUsers(data.users);
+        setUnseenMessages(data.unseenMessages);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  const getMessages = async (userId) => {
+    try {
+      const { data } = await axios.get(`/api/messages/${userId}`);
+      if (data.success) setMessages(data.messages);
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  const sendMessage = async (messageData) => {
+    try {
+      const { data } = await axios.post(`/api/messages/send/${selectedUser._id}`, messageData);
+      if (data.success) setMessages((prev) => [...prev, data.newMessage]);
+      else toast.error(data.message);
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  // ------------------ SUBSCRIBE TO NEW MESSAGES ------------------
+  const subscribeToMessages = () => {
+    if (!socket) return;
+
+    socket.on("newMessage", (newMessage) => {
+      if (selectedUser && newMessage.senderId === selectedUser._id) {
+        newMessage.seen = true;
+        setMessages((prev) => [...prev, newMessage]);
+        axios.put(`/api/messages/mark/${newMessage._id}`);
+      } else {
+        setUnseenMessages((prev) => ({
+          ...prev,
+          [newMessage.senderId]: prev[newMessage.senderId] ? prev[newMessage.senderId] + 1 : 1,
+        }));
+      }
+    });
+  };
+
+  const unsubscribeFromMessages = () => {
+    if (socket) socket.off("newMessage");
+  };
 
   useEffect(() => {
-    // ------------------- Socket.io -------------------
-    socketRef.current = io("https://chat-app-nmyd.onrender.com", {
-      query: { userId: authUser._id },
-      transports: ["websocket"],
-    });
+    subscribeToMessages();
+    return () => unsubscribeFromMessages();
+  }, [socket, selectedUser]);
 
-    socketRef.current.on("getOnlineUsers", setOnlineUsers);
-    socketRef.current.on("updatePeerIds", setPeerMap);
 
-    // ------------------- PeerJS -------------------
-    peerRef.current = new Peer(authUser._id, {
-      host: "chat-app-nmyd.onrender.com",
-      port: 443,
-      path: "/",
-      secure: true,
-    });
+  // ------------------ SOCKET EVENTS ------------------
+  useEffect(() => {
+    if (!socket) return;
 
-    peerRef.current.on("open", (id) => {
-      socketRef.current.emit("updatePeerId", { userId: authUser._id, peerId: id });
-    });
-
-    peerRef.current.on("call", async (call) => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        localStreamRef.current = stream;
-        localVideoRef.current.srcObject = stream;
-        localVideoRef.current.play();
-        call.answer(stream);
-        call.on("stream", (remoteStream) => {
-          remoteVideoRef.current.srcObject = remoteStream;
-          remoteVideoRef.current.play();
-          setRemoteStream(remoteStream);
-        });
-      } catch (err) {
-        console.error("Error accessing media devices:", err);
-      }
-    });
+    socket.on("offer", handleReceiveOffer);
+    socket.on("answer", handleReceiveAnswer);
+    socket.on("ice-candidate", handleReceiveICE);
 
     return () => {
-      socketRef.current.disconnect();
-      peerRef.current.destroy();
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
+      socket.off("offer");
+      socket.off("answer");
+      socket.off("ice-candidate");
     };
-  }, []);
+  }, [socket]);
 
-  const callUser = async (userId) => {
-    const peerId = peerMap[userId];
-    if (!peerId) return alert("User not ready for call");
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localStreamRef.current = stream;
-      localVideoRef.current.srcObject = stream;
-      localVideoRef.current.play();
-
-      const call = peerRef.current.call(peerId, stream);
-      call.on("stream", (remoteStream) => {
-        remoteVideoRef.current.srcObject = remoteStream;
-        remoteVideoRef.current.play();
-        setRemoteStream(remoteStream);
-      });
-
-      call.on("close", () => {
-        if (remoteVideoRef.current.srcObject)
-          remoteVideoRef.current.srcObject.getTracks().forEach((t) => t.stop());
-        setRemoteStream(null);
-      });
-    } catch (err) {
-      console.error("Error calling user:", err);
-    }
+  const value = {
+    messages,
+    users,
+    selectedUser,
+    getUsers,
+    getMessages,
+    sendMessage,
+    setSelectedUser,
+    unseenMessages,
+    setUnseenMessages,
   };
 
-  const endCall = (userId) => {
-    socketRef.current.emit("callEnded", { to: userId });
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((t) => t.stop());
-      localStreamRef.current = null;
-    }
-    if (remoteVideoRef.current?.srcObject)
-      remoteVideoRef.current.srcObject.getTracks().forEach((t) => t.stop());
-    setRemoteStream(null);
-  };
-
-  return (
-    <ChatContext.Provider
-      value={{
-        onlineUsers,
-        peerMap,
-        callUser,
-        endCall,
-        localVideoRef,
-        remoteVideoRef,
-      }}
-    >
-      {children}
-    </ChatContext.Provider>
-  );
+  return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 };
