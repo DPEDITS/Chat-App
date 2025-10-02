@@ -8,6 +8,7 @@ import messageRouter from "./routes/messageRoutes.js";
 import { Server } from "socket.io";
 import { ExpressPeerServer } from "peer";
 
+
 // Express + HTTP
 const app = express();
 const server = http.createServer(app);
@@ -65,7 +66,12 @@ io.on("connection", (socket) => {
 });
 
 // PeerJS
-const peerServer = ExpressPeerServer(server, { path: "/peerjs", debug: true });
+
+const peerServer = ExpressPeerServer(server, {
+  path: "/peerjs",
+  debug: true,
+});
+
 app.use("/peerjs", peerServer);
 
 // Start server

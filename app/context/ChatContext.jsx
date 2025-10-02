@@ -61,12 +61,18 @@ export const ChatProvider = ({ children }) => {
         if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
         const peer = new Peer(authUser._id, {
-          host: window.location.hostname,
-          port: window.location.protocol === "https:" ? 443 : 80,
+          host: "quick-chat-nolx.onrender.com",  // your Render domain
+          port: 443,                              // secure HTTPS
           path: "/peerjs",
-          secure: window.location.protocol === "https:",
-          config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] },
+          secure: true,
+          config: {
+            iceServers: [
+              { urls: "stun:stun.l.google.com:19302" },
+              { urls: "stun:stun1.l.google.com:19302" },
+            ],
+          },
         });
+        
         peerRef.current = peer;
 
         peer.on("open", (id) => socket.emit("updatePeerId", { userId: authUser._id, peerId: id }));
