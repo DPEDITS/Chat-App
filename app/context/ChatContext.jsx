@@ -11,11 +11,6 @@ export const ChatProvider = ({ children }) => {
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [unseenMessages, setUnseenMessages] = useState({}); // {userId: count}
-  const [inCall, setInCall] = useState(false);
-
-  const localVideoRef = useRef(null);
-  const remoteVideoRef = useRef(null);
-  const peerConnectionRef = useRef(null);
 
   // ------------------ CHAT FUNCTIONS ------------------
   const getUsers = async () => {
@@ -75,22 +70,6 @@ export const ChatProvider = ({ children }) => {
     subscribeToMessages();
     return () => unsubscribeFromMessages();
   }, [socket, selectedUser]);
-
-
-  // ------------------ SOCKET EVENTS ------------------
-  useEffect(() => {
-    if (!socket) return;
-
-    socket.on("offer", handleReceiveOffer);
-    socket.on("answer", handleReceiveAnswer);
-    socket.on("ice-candidate", handleReceiveICE);
-
-    return () => {
-      socket.off("offer");
-      socket.off("answer");
-      socket.off("ice-candidate");
-    };
-  }, [socket]);
 
   const value = {
     messages,
