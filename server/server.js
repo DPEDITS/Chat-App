@@ -13,8 +13,7 @@ const app = express();
 const server = http.createServer(app);
 
 // ------------------- Middleware -------------------
-const FRONTEND_URL = process.env.FRONTEND_URL || "*";
-app.use(cors({ origin: FRONTEND_URL, credentials: true }));
+app.use(cors({ origin: "*", credentials: true })); // Allow all origins
 app.use(express.json({ limit: "4mb" }));
 
 // ------------------- Routes -------------------
@@ -28,7 +27,7 @@ await connectDB();
 // ------------------- Socket.io -------------------
 export const io = new Server(server, {
   cors: {
-    origin: FRONTEND_URL,
+    origin: "*", // Allow all origins
     credentials: true,
   },
 });
@@ -42,16 +41,13 @@ io.on("connection", (socket) => {
 
   if (userId) userSocketMap[userId] = socket.id;
 
-  // Update Peer ID
   socket.on("updatePeerId", ({ userId, peerId }) => {
     userPeerMap[userId] = peerId;
     io.emit("updatePeerIds", userPeerMap);
   });
 
-  // Broadcast online users
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-  // Handle call events
   socket.on("callUser", ({ to, fromPeerId }) => {
     const targetSocketId = userSocketMap[to];
     if (targetSocketId) io.to(targetSocketId).emit("incomingCall", { fromPeerId });
@@ -72,13 +68,12 @@ io.on("connection", (socket) => {
 
 // ------------------- PeerJS -------------------
 const peerServer = ExpressPeerServer(server, {
+  path: "/",
   debug: true,
-  path: "/", // just "/" to avoid double /peerjs
 });
-
 app.use("/peerjs", peerServer);
 
-// ------------------- Start Server -------------------
+// ------------------- Start server -------------------
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => console.log(`Server running on PORT: ${PORT}`));
 
