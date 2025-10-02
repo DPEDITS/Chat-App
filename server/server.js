@@ -13,11 +13,8 @@ const app = express();
 const server = http.createServer(app);
 
 // ------------------- Middleware -------------------
-const FRONTEND_URL = process.env.FRONTEND_URL || "*"; 
-app.use(cors({
-  origin: FRONTEND_URL,
-  credentials: true,
-}));
+const FRONTEND_URL = process.env.FRONTEND_URL || "*";
+app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 app.use(express.json({ limit: "4mb" }));
 
 // ------------------- Routes -------------------
@@ -66,7 +63,7 @@ io.on("connection", (socket) => {
 });
 
 // ------------------- PeerJS -------------------
-const peerServer = ExpressPeerServer(server, { path: "/peerjs", debug: true });
+const peerServer = ExpressPeerServer(server, { path: "/peerjs", debug: true, allow_discovery: true });
 app.use("/peerjs", peerServer);
 
 // ------------------- Start server -------------------
