@@ -65,10 +65,10 @@ export const ChatProvider = ({ children }) => {
         }
 
         const peer = new Peer(authUser._id, {
-          host: window.location.hostname,
-          port: window.location.protocol === "https:" ? 443 : 80,
+          host: "chat-app-nmyd.onrender.com",
+          port: 443,
           path: "/peerjs",
-          secure: window.location.protocol === "https:",
+          secure: true,
           config: {
             iceServers: [
               { urls: "stun:stun.l.google.com:19302" },
@@ -76,7 +76,7 @@ export const ChatProvider = ({ children }) => {
             ],
           },
         });
-
+        
         peerRef.current = peer;
 
         peer.on("open", (id) => {
