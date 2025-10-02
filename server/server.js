@@ -12,24 +12,32 @@ import { ExpressPeerServer } from "peer";
 const app = express();
 const server = http.createServer(app);
 
-// Middleware
-app.use(express.json({ limit: "4mb" }));
-app.use(cors());
+// ------------------- Middleware -------------------
+// Allow requests from your frontend domain
+const FRONTEND_URL = process.env.FRONTEND_URL || "*"; // e.g., https://quick-chat-nolx.onrender.com
+app.use(cors({
+  origin: FRONTEND_URL,
+  credentials: true,
+}));
 
-// Routes
+app.use(express.json({ limit: "4mb" }));
+
+// ------------------- Routes -------------------
 app.use("/api/status", (req, res) => res.send("Server is running"));
 app.use("/api/auth", userRouter);
 app.use("/api/messages", messageRouter);
 
-// MongoDB connection
+// ------------------- MongoDB -------------------
 await connectDB();
 
 // ------------------- Socket.io -------------------
 export const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: {
+    origin: FRONTEND_URL,
+    credentials: true,
+  },
 });
 
-// Maps
 export const userSocketMap = {}; // userId -> socketId
 export const userPeerMap = {};   // userId -> peerId
 
@@ -39,7 +47,7 @@ io.on("connection", (socket) => {
 
   if (userId) userSocketMap[userId] = socket.id;
 
-  // Send online users to everyone
+  // Broadcast online users
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
   // Store/update PeerJS ID
@@ -47,7 +55,7 @@ io.on("connection", (socket) => {
     userPeerMap[userId] = peerId;
   });
 
-  // Call another user
+  // Handle call
   socket.on("callUser", ({ to, fromPeerId }) => {
     const targetSocketId = userSocketMap[to];
     if (targetSocketId) {
@@ -55,7 +63,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Call ended
+  // Handle call end
   socket.on("callEnded", ({ to }) => {
     const targetSocketId = userSocketMap[to];
     if (targetSocketId) io.to(targetSocketId).emit("callEnded");
