@@ -60,10 +60,6 @@ const ChatContainer = () => {
           alt=""
           className='md:hidden max-w-7 cursor-pointer'
         />
-        <MdVideoCall
-  className="text-white text-2xl cursor-pointer max-md:hidden"
-  onClick={startCall}
-/>
 
         <img src={assets.help_icon} alt="" className='max-md:hidden max-w-5' />
       </div>
