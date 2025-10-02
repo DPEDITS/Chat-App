@@ -13,13 +13,11 @@ const app = express();
 const server = http.createServer(app);
 
 // ------------------- Middleware -------------------
-// Allow requests from your frontend domain
-const FRONTEND_URL = process.env.FRONTEND_URL || "*"; // e.g., https://quick-chat-nolx.onrender.com
+const FRONTEND_URL = process.env.FRONTEND_URL || "*"; 
 app.use(cors({
   origin: FRONTEND_URL,
   credentials: true,
 }));
-
 app.use(express.json({ limit: "4mb" }));
 
 // ------------------- Routes -------------------
@@ -32,10 +30,7 @@ await connectDB();
 
 // ------------------- Socket.io -------------------
 export const io = new Server(server, {
-  cors: {
-    origin: FRONTEND_URL,
-    credentials: true,
-  },
+  cors: { origin: FRONTEND_URL, credentials: true },
 });
 
 export const userSocketMap = {}; // userId -> socketId
@@ -46,30 +41,22 @@ io.on("connection", (socket) => {
   console.log("User connected:", userId);
 
   if (userId) userSocketMap[userId] = socket.id;
-
-  // Broadcast online users
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-  // Store/update PeerJS ID
   socket.on("updatePeerId", ({ userId, peerId }) => {
     userPeerMap[userId] = peerId;
   });
 
-  // Handle call
   socket.on("callUser", ({ to, fromPeerId }) => {
     const targetSocketId = userSocketMap[to];
-    if (targetSocketId) {
-      io.to(targetSocketId).emit("incomingCall", { fromPeerId });
-    }
+    if (targetSocketId) io.to(targetSocketId).emit("incomingCall", { fromPeerId });
   });
 
-  // Handle call end
   socket.on("callEnded", ({ to }) => {
     const targetSocketId = userSocketMap[to];
     if (targetSocketId) io.to(targetSocketId).emit("callEnded");
   });
 
-  // Disconnect
   socket.on("disconnect", () => {
     console.log("User disconnected:", userId);
     delete userSocketMap[userId];

@@ -19,8 +19,6 @@ export const ChatProvider = ({ children }) => {
   const peerRef = useRef(null);
   const currentCallRef = useRef(null);
 
-  const [peerId, setPeerId] = useState(null); // store own peer id
-
   // ------------------- Users & Messages -------------------
   const getUsers = async () => {
     try {
@@ -83,27 +81,17 @@ export const ChatProvider = ({ children }) => {
         peerRef.current = peer;
 
         peer.on("open", (id) => {
-          setPeerId(id);
           socket.emit("updatePeerId", { userId: authUser._id, peerId: id });
-          console.log("Peer ready with ID:", id);
         });
 
-        // Incoming call
         peer.on("call", async (call) => {
-          try {
-            call.answer(stream);
-            call.on("stream", (remoteStream) => {
-              if (remoteVideoRef.current) {
-                remoteVideoRef.current.srcObject = remoteStream;
-                remoteVideoRef.current.play().catch(() => {});
-              }
-              currentCallRef.current = call;
-              setInCall(true);
-              toast.success("Incoming call connected!");
-            });
-          } catch (err) {
-            toast.error("Failed to answer call");
-          }
+          call.answer(stream);
+          call.on("stream", (remoteStream) => {
+            if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
+            currentCallRef.current = call;
+            setInCall(true);
+            toast.success("Call connected!");
+          });
         });
       } catch (err) {
         toast.error("Unable to access camera or microphone");
@@ -112,7 +100,6 @@ export const ChatProvider = ({ children }) => {
 
     initPeer();
 
-    // Socket events
     socket.on("callEnded", () => {
       endCall();
       toast("Call ended by other user");
@@ -138,10 +125,7 @@ export const ChatProvider = ({ children }) => {
 
       const call = peerRef.current.call(selectedUser.peerId, stream);
       call.on("stream", (remoteStream) => {
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remoteStream;
-          remoteVideoRef.current.play().catch(() => {});
-        }
+        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
         currentCallRef.current = call;
         setInCall(true);
       });
