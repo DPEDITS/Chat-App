@@ -52,14 +52,18 @@ export const ChatProvider = ({ children }) => {
   };
 
   // ------------------- VIDEO CALL -------------------
-  const startCall = async () => {
-    if (!selectedUser) return toast.error("Select a user to call");
-    setInCall(true);
+// ------------------- VIDEO CALL -------------------
+const startCall = async () => {
+  if (!selectedUser) return toast.error("Select a user to call");
+  setInCall(true);
 
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localVideoRef.current.srcObject = stream;
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  localVideoRef.current.srcObject = stream;
+  localVideoRef.current.muted = true; // mute local video to avoid echo
+  localVideoRef.current.play().catch(() => {});
 
-    // Initialize Peer with STUN/TURN config
+  // Initialize Peer (once)
+  if (!peerRef.current) {
     const peer = new Peer(authUser._id, {
       host: window.location.hostname,
       port: window.location.port,
@@ -69,8 +73,6 @@ export const ChatProvider = ({ children }) => {
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
-          // Add TURN server if needed for strict NAT/firewall
-          // { urls: "turn:your-turn-server-ip:3478", username: "user", credential: "pass" }
         ],
       },
     });
@@ -81,30 +83,34 @@ export const ChatProvider = ({ children }) => {
       call.answer(stream);
       call.on("stream", (remoteStream) => {
         remoteVideoRef.current.srcObject = remoteStream;
+        remoteVideoRef.current.play().catch(() => {});
         currentCallRef.current = call;
       });
     });
+  }
 
-    // Emit call to selected user
-    peer.on("open", (id) => {
-      socket.emit("callUser", { to: selectedUser._id, fromPeerId: id });
-    });
+  // Emit call to other user
+  peerRef.current.on("open", (id) => {
+    socket.emit("callUser", { to: selectedUser._id, fromPeerId: id });
+  });
 
-    // Incoming call from other user
-    socket.on("incomingCall", ({ from }) => {
-      const call = peer.call(from, stream);
-      call.on("stream", (remoteStream) => {
-        remoteVideoRef.current.srcObject = remoteStream;
-        currentCallRef.current = call;
-      });
+  // Listen for incoming call from socket
+  socket.on("incomingCall", ({ from }) => {
+    if (!peerRef.current) return;
+    const call = peerRef.current.call(from, stream);
+    call.on("stream", (remoteStream) => {
+      remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.play().catch(() => {});
+      currentCallRef.current = call;
     });
+  });
 
-    // Call ended by other user
-    socket.on("callEnded", () => {
-      endCall();
-      toast("Call ended by other user");
-    });
-  };
+  // Listen for call end
+  socket.on("callEnded", () => {
+    endCall();
+    toast("Call ended by other user");
+  });
+};
 
   const endCall = () => {
     setInCall(false);
