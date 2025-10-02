@@ -6,7 +6,7 @@ import Peer from "peerjs";
 export const ChatContext = createContext();
 
 export const ChatProvider = ({ children }) => {
-  const { socket, axios, authUser } = useContext(AuthContext);
+  const { socket, axios, authUser, onlineUsers } = useContext(AuthContext);
 
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
@@ -42,6 +42,7 @@ export const ChatProvider = ({ children }) => {
   };
 
   const sendMessage = async (messageData) => {
+    if (!selectedUser) return toast.error("Select a user to send a message");
     try {
       const { data } = await axios.post(`/api/messages/send/${selectedUser._id}`, messageData);
       if (data.success) setMessages((prev) => [...prev, data.newMessage]);
@@ -50,6 +51,16 @@ export const ChatProvider = ({ children }) => {
       toast.error(error.message);
     }
   };
+
+  // ------------------- Update users with peerId -------------------
+  useEffect(() => {
+    if (!users.length || !socket) return;
+    const updatedUsers = users.map((u) => ({
+      ...u,
+      peerId: u.peerId || null, // will update on incoming peer updates
+    }));
+    setUsers(updatedUsers);
+  }, [users, socket]);
 
   // ------------------- Video Call -------------------
   useEffect(() => {
@@ -67,7 +78,7 @@ export const ChatProvider = ({ children }) => {
 
         const peer = new Peer(authUser._id, {
           host: window.location.hostname,
-          port: window.location.port,
+          port: window.location.protocol === "https:" ? 443 : 80,
           path: "/peerjs",
           secure: window.location.protocol === "https:",
           config: {
@@ -100,19 +111,29 @@ export const ChatProvider = ({ children }) => {
 
     initPeer();
 
+    // ------------------- Socket listeners -------------------
     socket.on("callEnded", () => {
       endCall();
       toast("Call ended by other user");
     });
 
+    socket.on("updatePeerId", ({ userId, peerId }) => {
+      setUsers((prev) =>
+        prev.map((u) => (u._id === userId ? { ...u, peerId } : u))
+      );
+    });
+
     return () => {
       socket.off("callEnded");
+      socket.off("updatePeerId");
       if (peerRef.current) peerRef.current.destroy();
     };
   }, [authUser, socket]);
 
+  // ------------------- Start Call -------------------
   const startCall = async () => {
-    if (!selectedUser || !peerRef.current) return toast.error("Select a user to call");
+    if (!selectedUser) return toast.error("Select a user to call");
+    if (!peerRef.current) return toast.error("Peer not initialized");
     if (!selectedUser.peerId) return toast.error("User is not ready for call");
 
     try {
@@ -136,6 +157,7 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
+  // ------------------- End Call -------------------
   const endCall = () => {
     setInCall(false);
 
