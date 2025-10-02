@@ -18,9 +18,13 @@ const ChatContainer = () => {
     inCall,
     localVideoRef,
     remoteVideoRef,
+    callUser,        // added for explicit video call
+    answerCall,      // handle incoming call
+    incomingCall,    // boolean if a call is incoming
+    callerPeerId,    // peerId of incoming caller
   } = useContext(ChatContext);
 
-  const { authUser, users } = useContext(AuthContext);
+  const { authUser, users, onlineUsers } = useContext(AuthContext);
 
   const scrollEnd = useRef();
   const [input, setInput] = useState("");
@@ -61,6 +65,7 @@ const ChatContainer = () => {
 
   return (
     <div className="h-full relative backdrop-blur-lg overflow-scroll">
+
       {/* Header */}
       <div className="flex items-center gap-3 py-3 mx-4 border-b border-stone-500">
         <img
@@ -70,7 +75,9 @@ const ChatContainer = () => {
         />
         <p className="flex-1 text-lg text-white flex items-center gap-2">
           {selectedUser.fullName}
-          {selectedUser.peerId && <span className="w-2 h-2 rounded-full bg-green-500"></span>}
+          {onlineUsers.includes(selectedUser._id) && (
+            <span className="w-2 h-2 rounded-full bg-green-500"></span>
+          )}
         </p>
         <img
           onClick={() => setSelectedUser(null)}
@@ -78,10 +85,12 @@ const ChatContainer = () => {
           alt=""
           className="md:hidden max-w-7 cursor-pointer"
         />
-        <MdVideoCall
-          className="text-white text-2xl cursor-pointer max-md:hidden"
-          onClick={startCall}
-        />
+        {!inCall && (
+          <MdVideoCall
+            className="text-white text-2xl cursor-pointer max-md:hidden"
+            onClick={() => callUser(selectedUser._id)}
+          />
+        )}
         <img src={assets.help_icon} alt="" className="max-md:hidden max-w-5" />
       </div>
 
@@ -152,17 +161,37 @@ const ChatContainer = () => {
         </button>
       </form>
 
-      {/* Video Call */}
-      {inCall && (
+      {/* Video Call Overlay */}
+      {(inCall || incomingCall) && (
         <div className="absolute top-0 left-0 w-full h-full bg-black/70 flex flex-col items-center justify-center gap-3">
           <video ref={localVideoRef} autoPlay muted className="w-40 rounded-md" />
           <video ref={remoteVideoRef} autoPlay className="w-80 rounded-md" />
-          <button
-            className="p-2 bg-red-600 rounded-md text-white"
-            onClick={endCall}
-          >
-            End Call
-          </button>
+
+          {incomingCall && !inCall && (
+            <div className="flex gap-4">
+              <button
+                className="p-2 bg-green-600 rounded-md text-white"
+                onClick={answerCall}
+              >
+                Answer
+              </button>
+              <button
+                className="p-2 bg-red-600 rounded-md text-white"
+                onClick={endCall}
+              >
+                Reject
+              </button>
+            </div>
+          )}
+
+          {inCall && (
+            <button
+              className="p-2 bg-red-600 rounded-md text-white"
+              onClick={endCall}
+            >
+              End Call
+            </button>
+          )}
         </div>
       )}
     </div>
