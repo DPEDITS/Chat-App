@@ -20,7 +20,8 @@ const ChatContainer = () => {
     remoteVideoRef,
   } = useContext(ChatContext);
 
-  const { authUser, onlineUsers } = useContext(AuthContext);
+  const { authUser, users } = useContext(AuthContext);
+
   const scrollEnd = useRef();
   const [input, setInput] = useState("");
 
@@ -41,7 +42,7 @@ const ChatContainer = () => {
 
   const handleSendImage = async (e) => {
     const file = e.target.files[0];
-    if (!file || !file.type.startsWith("image/")) return toast.error("Select an image file");
+    if (!file?.type.startsWith("image/")) return toast.error("Select an image file");
     const reader = new FileReader();
     reader.onloadend = async () => {
       await sendMessage({ image: reader.result });
@@ -50,15 +51,13 @@ const ChatContainer = () => {
     reader.readAsDataURL(file);
   };
 
-  // ------------------- Render -------------------
-  if (!selectedUser) {
+  if (!selectedUser)
     return (
       <div className="flex flex-col items-center justify-center gap-2 text-gray-500 bg-white/10 max-md:hidden">
         <img src={assets.logo_icon} alt="" className="max-w-16" />
         <p className="text-lg text-white font-medium">Chat Anytime, Anywhere</p>
       </div>
     );
-  }
 
   return (
     <div className="h-full relative backdrop-blur-lg overflow-scroll">
@@ -71,9 +70,7 @@ const ChatContainer = () => {
         />
         <p className="flex-1 text-lg text-white flex items-center gap-2">
           {selectedUser.fullName}
-          {onlineUsers.includes(selectedUser._id) && (
-            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-          )}
+          {selectedUser.peerId && <span className="w-2 h-2 rounded-full bg-green-500"></span>}
         </p>
         <img
           onClick={() => setSelectedUser(null)}
@@ -81,19 +78,18 @@ const ChatContainer = () => {
           alt=""
           className="md:hidden max-w-7 cursor-pointer"
         />
-        {selectedUser && (
-          <MdVideoCall
-            className="text-white text-2xl cursor-pointer max-md:hidden"
-            onClick={startCall}
-          />
-        )}
+        <MdVideoCall
+          className="text-white text-2xl cursor-pointer max-md:hidden"
+          onClick={startCall}
+        />
+        <img src={assets.help_icon} alt="" className="max-md:hidden max-w-5" />
       </div>
 
       {/* Messages */}
       <div className="flex flex-col h-[calc(100%-120px)] overflow-y-scroll p-3 pb-6">
-        {messages.map((msg, index) => (
+        {messages.map((msg, idx) => (
           <div
-            key={index}
+            key={idx}
             className={`flex items-end gap-2 ${
               msg.senderId === authUser._id ? "justify-end" : "flex-row-reverse"
             }`}
@@ -127,55 +123,42 @@ const ChatContainer = () => {
             </div>
           </div>
         ))}
-        <div ref={scrollEnd} />
+        <div ref={scrollEnd}></div>
       </div>
 
-      {/* Chat Input */}
-      <div className="absolute bottom-0 left-0 right-0 flex items-center gap-3 p-3">
-        <div className="flex-1 flex items-center bg-gray-100/12 px-3 rounded-full">
-          <input
-            type="text"
-            placeholder="Send a message..."
-            className="flex-1 text-sm p-3 border-none outline-none text-white placeholder-gray-400"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSendMessage(e)}
-          />
-          <input
-            type="file"
-            id="image"
-            accept="image/png,image/jpeg"
-            hidden
-            onChange={handleSendImage}
-          />
-          <label htmlFor="image">
-            <img src={assets.gallery_icon} alt="" className="w-5 mr-2 cursor-pointer" />
-          </label>
-        </div>
-        <img
-          src={assets.send_button}
-          alt=""
-          className="w-7 cursor-pointer"
-          onClick={handleSendMessage}
+      {/* Footer */}
+      <form
+        onSubmit={handleSendMessage}
+        className="absolute bottom-2 left-0 right-0 px-3 flex gap-2 items-center"
+      >
+        <input
+          type="file"
+          id="send-image"
+          className="hidden"
+          onChange={handleSendImage}
         />
-      </div>
+        <label htmlFor="send-image">
+          <img src={assets.gallery_icon} alt="" className="cursor-pointer max-w-7" />
+        </label>
+        <input
+          type="text"
+          placeholder="Type a message"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          className="flex-1 p-2 rounded-lg bg-white/10 text-white outline-none"
+        />
+        <button type="submit">
+          <img src={assets.send_icon} alt="" className="max-w-7" />
+        </button>
+      </form>
 
-      {/* Video Call Panel */}
+      {/* Video Call */}
       {inCall && (
-        <div className="absolute bottom-20 right-5 bg-black p-2 rounded-lg flex gap-2 z-50 shadow-lg">
-          <video
-            ref={localVideoRef}
-            autoPlay
-            muted
-            className="w-40 h-40 rounded-lg border border-gray-500"
-          />
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            className="w-80 h-80 rounded-lg border border-gray-500"
-          />
+        <div className="absolute top-0 left-0 w-full h-full bg-black/70 flex flex-col items-center justify-center gap-3">
+          <video ref={localVideoRef} autoPlay muted className="w-40 rounded-md" />
+          <video ref={remoteVideoRef} autoPlay className="w-80 rounded-md" />
           <button
-            className="bg-red-600 text-white p-2 rounded self-start"
+            className="p-2 bg-red-600 rounded-md text-white"
             onClick={endCall}
           >
             End Call

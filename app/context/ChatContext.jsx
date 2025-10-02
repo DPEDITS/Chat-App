@@ -25,10 +25,7 @@ export const ChatProvider = ({ children }) => {
   const getUsers = async () => {
     try {
       const { data } = await axios.get("/api/messages/users");
-      if (data.success) {
-        setUsers(data.users);
-        setUnseenMessages(data.unseenMessages);
-      }
+      if (data.success) setUsers(data.users);
     } catch (error) {
       toast.error(error.message);
     }
@@ -54,14 +51,13 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // ------------------- PeerJS & Video Call -------------------
+  // ------------------- PeerJS Video Call -------------------
   useEffect(() => {
     if (!authUser || !socket) return;
 
     const initPeer = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
           localVideoRef.current.muted = true;
@@ -89,13 +85,17 @@ export const ChatProvider = ({ children }) => {
         });
 
         peer.on("call", async (call) => {
-          call.answer(stream);
-          call.on("stream", (remoteStream) => {
-            if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
-            currentCallRef.current = call;
-            setInCall(true);
-            toast.success("Call connected!");
-          });
+          try {
+            call.answer(stream);
+            call.on("stream", (remoteStream) => {
+              if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
+              currentCallRef.current = call;
+              setInCall(true);
+              toast.success("Call connected!");
+            });
+          } catch (err) {
+            toast.error("Failed to answer call");
+          }
         });
       } catch (err) {
         toast.error("Unable to access camera or microphone");
@@ -104,10 +104,10 @@ export const ChatProvider = ({ children }) => {
 
     initPeer();
 
-    // Listen for updated peer IDs from backend
-    socket.on("updatePeerIds", (peerData) => {
+    // Receive peer map updates from server
+    socket.on("updatePeerIds", (peerMap) => {
       setUsers((prevUsers) =>
-        prevUsers.map((u) => ({ ...u, peerId: peerData[u._id] || null }))
+        prevUsers.map((u) => ({ ...u, peerId: peerMap[u._id] || null }))
       );
     });
 
@@ -151,26 +151,25 @@ export const ChatProvider = ({ children }) => {
 
   const endCall = () => {
     setInCall(false);
-
     if (selectedUser) socket.emit("callEnded", { to: selectedUser._id });
 
     if (currentCallRef.current) currentCallRef.current.close();
     currentCallRef.current = null;
 
     if (localVideoRef.current?.srcObject)
-      localVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+      localVideoRef.current.srcObject.getTracks().forEach((t) => t.stop());
     if (remoteVideoRef.current?.srcObject)
-      remoteVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+      remoteVideoRef.current.srcObject.getTracks().forEach((t) => t.stop());
   };
 
   const value = {
     messages,
     users,
     selectedUser,
+    setSelectedUser,
     getUsers,
     getMessages,
     sendMessage,
-    setSelectedUser,
     unseenMessages,
     setUnseenMessages,
     startCall,
