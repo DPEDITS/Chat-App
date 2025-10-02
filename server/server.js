@@ -8,16 +8,16 @@ import messageRouter from "./routes/messageRoutes.js";
 import { Server } from "socket.io";
 import { ExpressPeerServer } from "peer";
 
-// ------------------- Express & HTTP -------------------
+// ------------------- Express + HTTP -------------------
 const app = express();
 const server = http.createServer(app);
 
 // ------------------- Middleware -------------------
-app.use(cors({ origin: "*", credentials: true })); // Allow all origins
+app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json({ limit: "4mb" }));
 
 // ------------------- Routes -------------------
-app.use("/api/status", (req, res) => res.send("Server is running"));
+app.use("/api/status", (req, res) => res.send("Server running"));
 app.use("/api/auth", userRouter);
 app.use("/api/messages", messageRouter);
 
@@ -34,29 +34,29 @@ export const userPeerMap = {};   // userId -> peerId
 
 io.on("connection", (socket) => {
   const userId = socket.handshake.query.userId;
-  console.log("User connected:", userId);
-
   if (userId) userSocketMap[userId] = socket.id;
+  io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
+  // Update peerId from client
   socket.on("updatePeerId", ({ userId, peerId }) => {
     userPeerMap[userId] = peerId;
     io.emit("updatePeerIds", userPeerMap);
   });
 
-  io.emit("getOnlineUsers", Object.keys(userSocketMap));
-
+  // Handle call initiation
   socket.on("callUser", ({ to, fromPeerId }) => {
     const targetSocketId = userSocketMap[to];
     if (targetSocketId) io.to(targetSocketId).emit("incomingCall", { fromPeerId });
   });
 
+  // Handle call end
   socket.on("callEnded", ({ to }) => {
     const targetSocketId = userSocketMap[to];
     if (targetSocketId) io.to(targetSocketId).emit("callEnded");
   });
 
+  // Disconnect
   socket.on("disconnect", () => {
-    console.log("User disconnected:", userId);
     delete userSocketMap[userId];
     delete userPeerMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
@@ -65,12 +65,13 @@ io.on("connection", (socket) => {
 
 // ------------------- PeerJS -------------------
 const peerServer = ExpressPeerServer(server, {
-  path: "/", // important: must match frontend path
+  path: "/", // make frontend path "/" to prevent double /peerjs
   debug: true,
 });
-app.use("/peerjs", peerServer); // mount at /peerjs
 
-// ------------------- Start server -------------------
+app.use("/peerjs", peerServer);
+
+// ------------------- Start Server -------------------
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => console.log(`Server running on PORT: ${PORT}`));
 
