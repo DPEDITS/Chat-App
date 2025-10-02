@@ -17,8 +17,8 @@ export const ChatProvider = ({ children }) => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const peerRef = useRef(null);
+  const currentCallRef = useRef(null);
 
-  // ---------------- CHAT FUNCTIONS ----------------
   const getUsers = async () => {
     try {
       const { data } = await axios.get("/api/messages/users");
@@ -50,28 +50,7 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // ---------------- MESSAGES SUBSCRIPTION ----------------
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleNewMessage = (newMessage) => {
-      if (selectedUser && newMessage.senderId === selectedUser._id) {
-        newMessage.seen = true;
-        setMessages((prev) => [...prev, newMessage]);
-        axios.put(`/api/messages/mark/${newMessage._id}`);
-      } else {
-        setUnseenMessages((prev) => ({
-          ...prev,
-          [newMessage.senderId]: prev[newMessage.senderId] ? prev[newMessage.senderId] + 1 : 1,
-        }));
-      }
-    };
-
-    socket.on("newMessage", handleNewMessage);
-    return () => socket.off("newMessage", handleNewMessage);
-  }, [socket, selectedUser]);
-
-  // ---------------- VIDEO CALL ----------------
+  // ------------------- VIDEO CALL -------------------
   const startCall = async () => {
     if (!selectedUser) return toast.error("Select a user to call");
     setInCall(true);
@@ -79,6 +58,7 @@ export const ChatProvider = ({ children }) => {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localVideoRef.current.srcObject = stream;
 
+    // Initialize Peer
     const peer = new Peer(authUser._id, {
       host: window.location.hostname,
       port: window.location.port,
@@ -87,50 +67,51 @@ export const ChatProvider = ({ children }) => {
     });
     peerRef.current = peer;
 
-    // Answer incoming calls
+    // Listen for incoming calls
     peer.on("call", (call) => {
       call.answer(stream);
       call.on("stream", (remoteStream) => {
         remoteVideoRef.current.srcObject = remoteStream;
+        currentCallRef.current = call;
       });
     });
 
-    // Initiate call
     peer.on("open", (id) => {
-      socket.emit("callUser", { userId: selectedUser._id, from: id });
+      socket.emit("callUser", { to: selectedUser._id, fromPeerId: id });
     });
 
-    socket.on("callAccepted", ({ from }) => {
+    socket.on("incomingCall", ({ from }) => {
+      // Caller PeerId received, call them
       const call = peer.call(from, stream);
       call.on("stream", (remoteStream) => {
         remoteVideoRef.current.srcObject = remoteStream;
+        currentCallRef.current = call;
       });
     });
 
-    // Listen for call end from other user
+    // Listen for call end
     socket.on("callEnded", () => {
-      endCall(false);
-      toast("Call ended by the other user");
+      endCall();
+      toast("Call ended by other user");
     });
   };
 
-  const endCall = (notifyOther = true) => {
+  const endCall = () => {
     setInCall(false);
+
+    // Inform the other user
+    if (selectedUser) socket.emit("callEnded", { to: selectedUser._id });
+
+    if (currentCallRef.current) currentCallRef.current.close();
+    currentCallRef.current = null;
 
     if (peerRef.current) peerRef.current.destroy();
     peerRef.current = null;
 
     if (localVideoRef.current?.srcObject)
       localVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
-    localVideoRef.current.srcObject = null;
-
     if (remoteVideoRef.current?.srcObject)
       remoteVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
-    remoteVideoRef.current.srcObject = null;
-
-    if (notifyOther && selectedUser) {
-      socket.emit("callEnded", { to: selectedUser._id });
-    }
   };
 
   const value = {
@@ -143,7 +124,6 @@ export const ChatProvider = ({ children }) => {
     setSelectedUser,
     unseenMessages,
     setUnseenMessages,
-    // Video Call
     startCall,
     endCall,
     inCall,

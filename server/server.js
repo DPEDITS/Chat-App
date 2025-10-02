@@ -8,55 +8,56 @@ import messageRouter from "./routes/messageRoutes.js";
 import { Server } from "socket.io";
 import { ExpressPeerServer } from "peer";
 
-// ------------------ EXPRESS APP ------------------
+// Express app & HTTP server
 const app = express();
 const server = http.createServer(app);
 
-// ------------------ SOCKET.IO ------------------
-export const io = new Server(server, {
-  cors: { origin: "*" },
-});
+// Middleware
+app.use(express.json({ limit: "4mb" }));
+app.use(cors());
 
-// ------------------ PEERJS SERVER ------------------
-const peerServer = ExpressPeerServer(server, {
-  debug: true,
-  path: "/peerjs",
-});
-app.use("/peerjs", peerServer);
+// Routes
+app.use("/api/status", (req, res) => res.send("Server is running"));
+app.use("/api/auth", userRouter);
+app.use("/api/messages", messageRouter);
 
-// ------------------ ONLINE USERS MAP ------------------
+// MongoDB
+await connectDB();
+
+// Socket.io setup
+export const io = new Server(server, { cors: { origin: "*" } });
 export const userSocketMap = {}; // {userId: socketId}
 
 io.on("connection", (socket) => {
   const userId = socket.handshake.query.userId;
-  console.log("User Connected:", userId);
-
   if (userId) userSocketMap[userId] = socket.id;
-
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-  // Chat signaling handled by your front-end PeerJS, no need for manual ICE/offer/answer here
+  // Call signaling
+  socket.on("callUser", ({ to, fromPeerId }) => {
+    const targetSocketId = userSocketMap[to];
+    if (targetSocketId) io.to(targetSocketId).emit("incomingCall", { from: fromPeerId });
+  });
+
+  socket.on("callEnded", ({ to }) => {
+    const targetSocketId = userSocketMap[to];
+    if (targetSocketId) io.to(targetSocketId).emit("callEnded");
+  });
+
+  // Handle disconnect
   socket.on("disconnect", () => {
-    console.log("User Disconnected:", userId);
     delete userSocketMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
 });
 
-// ------------------ MIDDLEWARE ------------------
-app.use(express.json({ limit: "4mb" }));
-app.use(cors());
+// PeerJS server
+const peerServer = ExpressPeerServer(server, { path: "/peerjs", debug: true });
+app.use("/peerjs", peerServer);
 
-// ------------------ ROUTES ------------------
-app.use("/api/status", (req, res) => res.send("Server is running"));
-app.use("/api/auth", userRouter);
-app.use("/api/messages", messageRouter);
-
-// ------------------ DATABASE ------------------
-await connectDB();
-
-// ------------------ START SERVER ------------------
+// Start server
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`Server running on PORT: ${PORT}`));
-
+server.listen(PORT, () => console.log("Server running on PORT:", PORT));
+// Export the server and io for other modules if needed
+export { server };
 export default server;
