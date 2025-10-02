@@ -11,7 +11,6 @@ export const ChatProvider = ({ children }) => {
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [unseenMessages, setUnseenMessages] = useState({});
   const [inCall, setInCall] = useState(false);
 
   const localVideoRef = useRef(null);
@@ -21,113 +20,69 @@ export const ChatProvider = ({ children }) => {
 
   const [peerId, setPeerId] = useState(null);
 
-  // ------------------- Users & Messages -------------------
+  // ------------------- Users -------------------
   const getUsers = async () => {
     try {
       const { data } = await axios.get("/api/messages/users");
       if (data.success) setUsers(data.users);
-    } catch (error) {
-      toast.error(error.message);
+    } catch (err) {
+      toast.error(err.message);
     }
   };
 
-  const getMessages = async (userId) => {
-    try {
-      const { data } = await axios.get(`/api/messages/${userId}`);
-      if (data.success) setMessages(data.messages);
-    } catch (error) {
-      toast.error(error.message);
-    }
-  };
-
-  const sendMessage = async (messageData) => {
-    if (!selectedUser) return toast.error("Select a user first");
-    try {
-      const { data } = await axios.post(`/api/messages/send/${selectedUser._id}`, messageData);
-      if (data.success) setMessages((prev) => [...prev, data.newMessage]);
-      else toast.error(data.message);
-    } catch (error) {
-      toast.error(error.message);
-    }
-  };
-
-  // ------------------- PeerJS Video Call -------------------
+  // Update peerIds from server
   useEffect(() => {
-    if (!authUser || !socket) return;
+    if (!socket) return;
+    socket.on("updatePeerIds", (peerMap) => {
+      setUsers((prev) =>
+        prev.map((u) => ({ ...u, peerId: peerMap[u._id] || null }))
+      );
+    });
+    return () => socket.off("updatePeerIds");
+  }, [socket]);
 
-    const initPeer = async () => {
+  // ------------------- Initialize Peer (without auto camera) -------------------
+  useEffect(() => {
+    if (!authUser) return;
+    const peer = new Peer(authUser._id, {
+      host: "chat-app-nmyd.onrender.com",
+      port: 443,
+      path: "/peerjs",
+      secure: true,
+    });
+    peerRef.current = peer;
+
+    peer.on("open", (id) => {
+      setPeerId(id);
+      socket.emit("updatePeerId", { userId: authUser._id, peerId: id });
+    });
+
+    peer.on("call", async (call) => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        call.answer(stream);
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
           localVideoRef.current.muted = true;
           localVideoRef.current.play().catch(() => {});
         }
 
-        const peer = new Peer(authUser._id, {
-          host: "chat-app-nmyd.onrender.com",
-          port: 443,
-          path: "/peerjs",
-          secure: true,
-          config: {
-            iceServers: [
-              { urls: "stun:stun.l.google.com:19302" },
-              { urls: "stun:stun1.l.google.com:19302" },
-            ],
-          },
-        });
-        
-        peerRef.current = peer;
-
-        peer.on("open", (id) => {
-          setPeerId(id);
-          socket.emit("updatePeerId", { userId: authUser._id, peerId: id });
-        });
-
-        peer.on("call", async (call) => {
-          try {
-            call.answer(stream);
-            call.on("stream", (remoteStream) => {
-              if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
-              currentCallRef.current = call;
-              setInCall(true);
-              toast.success("Call connected!");
-            });
-          } catch (err) {
-            toast.error("Failed to answer call");
-          }
+        call.on("stream", (remoteStream) => {
+          if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
+          currentCallRef.current = call;
+          setInCall(true);
         });
       } catch (err) {
-        toast.error("Unable to access camera or microphone");
+        toast.error("Camera/mic access denied");
       }
-    };
-
-    initPeer();
-
-    // Receive peer map updates from server
-    socket.on("updatePeerIds", (peerMap) => {
-      setUsers((prevUsers) =>
-        prevUsers.map((u) => ({ ...u, peerId: peerMap[u._id] || null }))
-      );
     });
 
-    socket.on("callEnded", () => {
-      endCall();
-      toast("Call ended by other user");
-    });
-
-    return () => {
-      socket.off("updatePeerIds");
-      socket.off("callEnded");
-      if (peerRef.current) peerRef.current.destroy();
-    };
+    return () => peer.destroy();
   }, [authUser, socket]);
 
+  // ------------------- Start Call -------------------
   const startCall = async () => {
-    if (!selectedUser) return toast.error("Select a user to call");
-    if (!peerRef.current) return toast.error("Peer not initialized");
-    if (!selectedUser.peerId) return toast.error("User is not ready for call");
-
+    if (!selectedUser?.peerId) return toast.error("User is not ready for call");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       if (localVideoRef.current) {
@@ -152,32 +107,26 @@ export const ChatProvider = ({ children }) => {
   const endCall = () => {
     setInCall(false);
     if (selectedUser) socket.emit("callEnded", { to: selectedUser._id });
-
     if (currentCallRef.current) currentCallRef.current.close();
+    if (localVideoRef.current?.srcObject) localVideoRef.current.srcObject.getTracks().forEach((t) => t.stop());
+    if (remoteVideoRef.current?.srcObject) remoteVideoRef.current.srcObject.getTracks().forEach((t) => t.stop());
     currentCallRef.current = null;
-
-    if (localVideoRef.current?.srcObject)
-      localVideoRef.current.srcObject.getTracks().forEach((t) => t.stop());
-    if (remoteVideoRef.current?.srcObject)
-      remoteVideoRef.current.srcObject.getTracks().forEach((t) => t.stop());
   };
 
-  const value = {
-    messages,
-    users,
-    selectedUser,
-    setSelectedUser,
-    getUsers,
-    getMessages,
-    sendMessage,
-    unseenMessages,
-    setUnseenMessages,
-    startCall,
-    endCall,
-    inCall,
-    localVideoRef,
-    remoteVideoRef,
-  };
-
-  return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
+  return (
+    <ChatContext.Provider value={{
+      messages,
+      users,
+      selectedUser,
+      setSelectedUser,
+      startCall,
+      endCall,
+      inCall,
+      localVideoRef,
+      remoteVideoRef,
+      getUsers,
+    }}>
+      {children}
+    </ChatContext.Provider>
+  );
 };
