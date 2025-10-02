@@ -6,52 +6,36 @@ import { connectDB } from "./lib/db.js";
 import userRouter from "./routes/userRoutes.js";
 import messageRouter from "./routes/messageRoutes.js";
 import { Server } from "socket.io";
+import { ExpressPeerServer } from "peer";
 
-// -------------------- EXPRESS APP & HTTP SERVER --------------------
+// ------------------ EXPRESS APP ------------------
 const app = express();
 const server = http.createServer(app);
 
-// -------------------- SOCKET.IO SETUP --------------------
+// ------------------ SOCKET.IO ------------------
 export const io = new Server(server, {
-  cors: { origin: "*" }, // Allow all origins (adjust for production)
+  cors: { origin: "*" },
 });
 
-// Store online users: { userId: socketId }
-export const userSocketMap = {};
+// ------------------ PEERJS SERVER ------------------
+const peerServer = ExpressPeerServer(server, {
+  debug: true,
+  path: "/peerjs",
+});
+app.use("/peerjs", peerServer);
 
-// -------------------- SOCKET.IO CONNECTION --------------------
+// ------------------ ONLINE USERS MAP ------------------
+export const userSocketMap = {}; // {userId: socketId}
+
 io.on("connection", (socket) => {
   const userId = socket.handshake.query.userId;
   console.log("User Connected:", userId);
 
   if (userId) userSocketMap[userId] = socket.id;
 
-  // Broadcast online users
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-  // ----- VIDEO CALL SIGNALING -----
-  socket.on("offer", ({ to, offer }) => {
-    const targetSocketId = userSocketMap[to];
-    if (targetSocketId) {
-      io.to(targetSocketId).emit("offer", { offer, from: userId });
-    }
-  });
-
-  socket.on("answer", ({ to, answer }) => {
-    const targetSocketId = userSocketMap[to];
-    if (targetSocketId) {
-      io.to(targetSocketId).emit("answer", { answer });
-    }
-  });
-
-  socket.on("ice-candidate", ({ to, candidate }) => {
-    const targetSocketId = userSocketMap[to];
-    if (targetSocketId) {
-      io.to(targetSocketId).emit("ice-candidate", { candidate });
-    }
-  });
-
-  // Handle disconnection
+  // Chat signaling handled by your front-end PeerJS, no need for manual ICE/offer/answer here
   socket.on("disconnect", () => {
     console.log("User Disconnected:", userId);
     delete userSocketMap[userId];
@@ -59,21 +43,20 @@ io.on("connection", (socket) => {
   });
 });
 
-// -------------------- MIDDLEWARE --------------------
+// ------------------ MIDDLEWARE ------------------
 app.use(express.json({ limit: "4mb" }));
 app.use(cors());
 
-// -------------------- ROUTES --------------------
+// ------------------ ROUTES ------------------
 app.use("/api/status", (req, res) => res.send("Server is running"));
 app.use("/api/auth", userRouter);
 app.use("/api/messages", messageRouter);
 
-// -------------------- DATABASE CONNECTION --------------------
+// ------------------ DATABASE ------------------
 await connectDB();
 
-// -------------------- START SERVER --------------------
+// ------------------ START SERVER ------------------
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`Server is running on PORT: ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on PORT: ${PORT}`));
 
-// -------------------- EXPORT FOR DEPLOY --------------------
 export default server;

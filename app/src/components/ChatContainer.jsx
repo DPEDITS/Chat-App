@@ -8,17 +8,8 @@ import toast from 'react-hot-toast';
 
 const ChatContainer = () => {
   const { 
-    messages,
-    selectedUser,
-    setSelectedUser,
-    sendMessage,
-    getMessages,
-    unseenMessages,
-    startCall,
-    endCall,
-    inCall,
-    localVideoRef,
-    remoteVideoRef 
+    messages, selectedUser, setSelectedUser, sendMessage, getMessages,
+    startCall, endCall, inCall, localVideoRef, remoteVideoRef 
   } = useContext(ChatContext);
 
   const { authUser, onlineUsers } = useContext(AuthContext);
@@ -26,7 +17,6 @@ const ChatContainer = () => {
   const scrollEnd = useRef();
   const [input, setInput] = useState('');
 
-  // ---------------- CHAT LOGIC ----------------
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -37,7 +27,6 @@ const ChatContainer = () => {
   const handleSendImage = async (e) => {
     const file = e.target.files[0];
     if (!file || !file.type.startsWith("image/")) return toast.error("Select an image file");
-
     const reader = new FileReader();
     reader.onloadend = async () => {
       await sendMessage({ image: reader.result });
@@ -46,31 +35,18 @@ const ChatContainer = () => {
     reader.readAsDataURL(file);
   };
 
-  // Fetch messages when a user is selected
   useEffect(() => {
     if (selectedUser) getMessages(selectedUser._id);
   }, [selectedUser]);
 
-  // Auto-scroll to the latest message
   useEffect(() => {
     if (scrollEnd.current && messages) {
       scrollEnd.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
 
-  // ---------------- RENDER ----------------
-  if (!selectedUser) {
-    return (
-      <div className='flex flex-col items-center justify-center gap-2 text-gray-500 bg-white/10 max-md:hidden'>
-        <img src={assets.logo_icon} alt="" className='max-w-16' />
-        <p className='text-lg text-white font-medium'>Chat Anytime, Anywhere</p>
-      </div>
-    );
-  }
-
-  return (
+  return selectedUser ? (
     <div className='h-full relative backdrop-blur-lg overflow-scroll'>
-
       {/* Header */}
       <div className='flex items-center gap-3 py-3 mx-4 border-b border-stone-500'>
         <img src={selectedUser.profilePic || assets.avatar_icon} alt="" className='w-8 rounded-full' />
@@ -114,7 +90,7 @@ const ChatContainer = () => {
           <input
             type='text'
             placeholder='Send a message...'
-            className='flex-1 text-sm p-3 border-none rounded-ls outline-none text-white placeholder-gray-400'
+            className='flex-1 text-sm p-3 border-none outline-none text-white placeholder-gray-400'
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleSendMessage(e)}
@@ -135,6 +111,11 @@ const ChatContainer = () => {
           <button className="bg-red-600 text-white p-2 rounded" onClick={endCall}>End Call</button>
         </div>
       )}
+    </div>
+  ) : (
+    <div className='flex flex-col items-center justify-center gap-2 text-gray-500 bg-white/10 max-md:hidden'>
+      <img src={assets.logo_icon} alt="" className='max-w-16' />
+      <p className='text-lg text-white font-medium'>Chat Anytime, Anywhere</p>
     </div>
   );
 };

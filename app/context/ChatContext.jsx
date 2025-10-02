@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { AuthContext } from "./AuthContext";
 import toast from "react-hot-toast";
+import Peer from "peerjs";
 
 export const ChatContext = createContext();
 
@@ -10,16 +11,14 @@ export const ChatProvider = ({ children }) => {
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [unseenMessages, setUnseenMessages] = useState({}); // {userId: count}
+  const [unseenMessages, setUnseenMessages] = useState({});
   const [inCall, setInCall] = useState(false);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
-  const peerConnectionRef = useRef(null);
+  const peerRef = useRef(null);
 
-  const configuration = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
-
-  // ------------------ CHAT FUNCTIONS ------------------
+  // ---------------- CHAT FUNCTIONS ----------------
   const getUsers = async () => {
     try {
       const { data } = await axios.get("/api/messages/users");
@@ -51,7 +50,7 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // ------------------ MESSAGES SUBSCRIPTION ------------------
+  // ---------------- MESSAGES SUBSCRIPTION ----------------
   useEffect(() => {
     if (!socket) return;
 
@@ -72,7 +71,7 @@ export const ChatProvider = ({ children }) => {
     return () => socket.off("newMessage", handleNewMessage);
   }, [socket, selectedUser]);
 
-  // ------------------ VIDEO CALL FUNCTIONS ------------------
+  // ---------------- VIDEO CALL ----------------
   const startCall = async () => {
     if (!selectedUser) return toast.error("Select a user to call");
     setInCall(true);
@@ -80,99 +79,48 @@ export const ChatProvider = ({ children }) => {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localVideoRef.current.srcObject = stream;
 
-    const pc = new RTCPeerConnection(configuration);
-    peerConnectionRef.current = pc;
-
-    stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-    pc.ontrack = (event) => {
-      remoteVideoRef.current.srcObject = event.streams[0];
-    };
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit("ice-candidate", {
-          to: selectedUser._id,
-          from: authUser._id,
-          candidate: event.candidate,
-        });
-      }
-    };
-
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-
-    socket.emit("offer", {
-      to: selectedUser._id,
-      from: authUser._id,
-      offer,
+    // Create Peer
+    const peer = new Peer(authUser._id, {
+      host: window.location.hostname,
+      port: window.location.port,
+      path: "/peerjs",
+      secure: window.location.protocol === "https:",
     });
-  };
+    peerRef.current = peer;
 
-  const handleReceiveOffer = async ({ offer, from }) => {
-    setInCall(true);
+    // Answer incoming calls
+    peer.on("call", (call) => {
+      call.answer(stream);
+      call.on("stream", (remoteStream) => {
+        remoteVideoRef.current.srcObject = remoteStream;
+      });
+    });
 
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localVideoRef.current.srcObject = stream;
+    // Initiate call to selected user
+    socket.emit("startCall", { to: selectedUser._id });
+    peer.on("open", (id) => {
+      socket.emit("callUser", { userId: selectedUser._id, from: id });
+    });
 
-    const pc = new RTCPeerConnection(configuration);
-    peerConnectionRef.current = pc;
-
-    stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-    pc.ontrack = (event) => {
-      remoteVideoRef.current.srcObject = event.streams[0];
-    };
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit("ice-candidate", { to: from, from: authUser._id, candidate: event.candidate });
-      }
-    };
-
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-
-    socket.emit("answer", { to: from, from: authUser._id, answer });
-  };
-
-  const handleReceiveAnswer = async ({ answer }) => {
-    const pc = peerConnectionRef.current;
-    if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
-  };
-
-  const handleReceiveICE = async ({ candidate }) => {
-    const pc = peerConnectionRef.current;
-    if (pc) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+    socket.on("callAccepted", ({ from }) => {
+      const call = peer.call(from, stream);
+      call.on("stream", (remoteStream) => {
+        remoteVideoRef.current.srcObject = remoteStream;
+      });
+    });
   };
 
   const endCall = () => {
     setInCall(false);
-    const pc = peerConnectionRef.current;
-    if (pc) pc.close();
-    peerConnectionRef.current = null;
+    if (peerRef.current) peerRef.current.destroy();
+    peerRef.current = null;
 
-    localVideoRef.current?.srcObject?.getTracks().forEach((track) => track.stop());
-    remoteVideoRef.current?.srcObject?.getTracks().forEach((track) => track.stop());
+    if (localVideoRef.current?.srcObject)
+      localVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+    if (remoteVideoRef.current?.srcObject)
+      remoteVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
   };
 
-  // ------------------ SOCKET EVENTS ------------------
-  useEffect(() => {
-    if (!socket) return;
-
-    socket.on("offer", handleReceiveOffer);
-    socket.on("answer", handleReceiveAnswer);
-    socket.on("ice-candidate", handleReceiveICE);
-
-    return () => {
-      socket.off("offer", handleReceiveOffer);
-      socket.off("answer", handleReceiveAnswer);
-      socket.off("ice-candidate", handleReceiveICE);
-    };
-  }, [socket]);
-
-  // ------------------ CONTEXT VALUE ------------------
   const value = {
     messages,
     users,
