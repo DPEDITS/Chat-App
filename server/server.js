@@ -42,7 +42,7 @@ io.on("connection", (socket) => {
 
   if (userId) userSocketMap[userId] = socket.id;
 
-  // Update peerId map
+  // Update Peer ID
   socket.on("updatePeerId", ({ userId, peerId }) => {
     userPeerMap[userId] = peerId;
     io.emit("updatePeerIds", userPeerMap);
@@ -51,12 +51,10 @@ io.on("connection", (socket) => {
   // Broadcast online users
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-  // Handle calls
+  // Handle call events
   socket.on("callUser", ({ to, fromPeerId }) => {
     const targetSocketId = userSocketMap[to];
-    if (targetSocketId) {
-      io.to(targetSocketId).emit("incomingCall", { fromPeerId });
-    }
+    if (targetSocketId) io.to(targetSocketId).emit("incomingCall", { fromPeerId });
   });
 
   socket.on("callEnded", ({ to }) => {
@@ -64,7 +62,6 @@ io.on("connection", (socket) => {
     if (targetSocketId) io.to(targetSocketId).emit("callEnded");
   });
 
-  // Disconnect
   socket.on("disconnect", () => {
     console.log("User disconnected:", userId);
     delete userSocketMap[userId];
@@ -76,12 +73,12 @@ io.on("connection", (socket) => {
 // ------------------- PeerJS -------------------
 const peerServer = ExpressPeerServer(server, {
   debug: true,
-  path: "/peerjs", // ✅ single path
+  path: "/", // just "/" to avoid double /peerjs
 });
 
 app.use("/peerjs", peerServer);
 
-// ------------------- Start server -------------------
+// ------------------- Start Server -------------------
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => console.log(`Server running on PORT: ${PORT}`));
 
