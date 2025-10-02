@@ -17,6 +17,16 @@ const ChatContainer = () => {
   const scrollEnd = useRef();
   const [input, setInput] = useState('');
 
+  // Fetch messages when a user is selected
+  useEffect(() => { if (selectedUser) getMessages(selectedUser._id); }, [selectedUser]);
+
+  // Scroll to the latest message
+  useEffect(() => { 
+    if (scrollEnd.current && messages) {
+      scrollEnd.current.scrollIntoView({ behavior: 'smooth' });
+    } 
+  }, [messages]);
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -34,16 +44,6 @@ const ChatContainer = () => {
     };
     reader.readAsDataURL(file);
   };
-
-  useEffect(() => {
-    if (selectedUser) getMessages(selectedUser._id);
-  }, [selectedUser]);
-
-  useEffect(() => {
-    if (scrollEnd.current && messages) {
-      scrollEnd.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
 
   return selectedUser ? (
     <div className='h-full relative backdrop-blur-lg overflow-scroll'>
