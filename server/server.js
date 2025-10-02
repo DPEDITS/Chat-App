@@ -26,10 +26,7 @@ await connectDB();
 
 // ------------------- Socket.io -------------------
 export const io = new Server(server, {
-  cors: {
-    origin: "*", // Allow all origins
-    credentials: true,
-  },
+  cors: { origin: "*", credentials: true },
 });
 
 export const userSocketMap = {}; // userId -> socketId
@@ -68,10 +65,10 @@ io.on("connection", (socket) => {
 
 // ------------------- PeerJS -------------------
 const peerServer = ExpressPeerServer(server, {
-  path: "/",
+  path: "/", // important: must match frontend path
   debug: true,
 });
-app.use("/peerjs", peerServer);
+app.use("/peerjs", peerServer); // mount at /peerjs
 
 // ------------------- Start server -------------------
 const PORT = process.env.PORT || 10000;
