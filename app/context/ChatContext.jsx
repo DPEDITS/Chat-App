@@ -19,7 +19,6 @@ export const ChatProvider = ({ children }) => {
   const peerRef = useRef(null);
   const currentCallRef = useRef(null);
 
-  // ------------------- USER & MESSAGES -------------------
   const getUsers = async () => {
     try {
       const { data } = await axios.get("/api/messages/users");
@@ -52,65 +51,78 @@ export const ChatProvider = ({ children }) => {
   };
 
   // ------------------- VIDEO CALL -------------------
-// ------------------- VIDEO CALL -------------------
-const startCall = async () => {
-  if (!selectedUser) return toast.error("Select a user to call");
-  setInCall(true);
+  useEffect(() => {
+    if (!authUser || !socket) return;
 
-  const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-  localVideoRef.current.srcObject = stream;
-  localVideoRef.current.muted = true; // mute local video to avoid echo
-  localVideoRef.current.play().catch(() => {});
+    const initPeer = async () => {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localVideoRef.current.srcObject = stream;
+      localVideoRef.current.muted = true;
+      localVideoRef.current.play().catch(() => {});
 
-  // Initialize Peer (once)
-  if (!peerRef.current) {
-    const peer = new Peer(authUser._id, {
-      host: window.location.hostname,
-      port: window.location.port,
-      path: "/peerjs",
-      secure: window.location.protocol === "https:",
-      config: {
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" },
-        ],
-      },
-    });
-    peerRef.current = peer;
+      const peer = new Peer(authUser._id, {
+        host: window.location.hostname,
+        port: window.location.port,
+        path: "/peerjs",
+        secure: window.location.protocol === "https:",
+        config: {
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+          ],
+        },
+      });
 
-    // Listen for incoming calls
-    peer.on("call", (call) => {
-      call.answer(stream);
+      peerRef.current = peer;
+
+      // Incoming calls from other peers
+      peer.on("call", (call) => {
+        call.answer(stream);
+        call.on("stream", (remoteStream) => {
+          remoteVideoRef.current.srcObject = remoteStream;
+          remoteVideoRef.current.play().catch(() => {});
+          currentCallRef.current = call;
+          setInCall(true);
+        });
+      });
+
+      // When this peer is ready, emit ID to call others
+      peer.on("open", (id) => {
+        console.log("PeerJS ready with ID:", id);
+      });
+    };
+
+    initPeer();
+
+    // Socket listeners
+    socket.on("incomingCall", ({ from }) => {
+      if (!peerRef.current) return;
+      const call = peerRef.current.call(from, localVideoRef.current.srcObject);
       call.on("stream", (remoteStream) => {
         remoteVideoRef.current.srcObject = remoteStream;
         remoteVideoRef.current.play().catch(() => {});
         currentCallRef.current = call;
+        setInCall(true);
       });
     });
-  }
 
-  // Emit call to other user
-  peerRef.current.on("open", (id) => {
-    socket.emit("callUser", { to: selectedUser._id, fromPeerId: id });
-  });
-
-  // Listen for incoming call from socket
-  socket.on("incomingCall", ({ from }) => {
-    if (!peerRef.current) return;
-    const call = peerRef.current.call(from, stream);
-    call.on("stream", (remoteStream) => {
-      remoteVideoRef.current.srcObject = remoteStream;
-      remoteVideoRef.current.play().catch(() => {});
-      currentCallRef.current = call;
+    socket.on("callEnded", () => {
+      endCall();
+      toast("Call ended by other user");
     });
-  });
 
-  // Listen for call end
-  socket.on("callEnded", () => {
-    endCall();
-    toast("Call ended by other user");
-  });
-};
+    return () => {
+      socket.off("incomingCall");
+      socket.off("callEnded");
+      if (peerRef.current) peerRef.current.destroy();
+    };
+  }, [authUser, socket]);
+
+  const startCall = () => {
+    if (!selectedUser || !peerRef.current) return toast.error("Select a user to call");
+    const fromPeerId = peerRef.current.id;
+    socket.emit("callUser", { to: selectedUser._id, fromPeerId });
+  };
 
   const endCall = () => {
     setInCall(false);
@@ -119,9 +131,6 @@ const startCall = async () => {
 
     if (currentCallRef.current) currentCallRef.current.close();
     currentCallRef.current = null;
-
-    if (peerRef.current) peerRef.current.destroy();
-    peerRef.current = null;
 
     if (localVideoRef.current?.srcObject)
       localVideoRef.current.srcObject.getTracks().forEach((track) => track.stop());
