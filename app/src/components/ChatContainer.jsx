@@ -3,7 +3,6 @@ import assets, { messagesDummyData } from '../assets/assets';
 import { formatMessageTime } from '../lib/utils';
 import { ChatContext } from '../../context/ChatContext';
 import { AuthContext } from '../../context/AuthContext';
-import { MdVideoCall } from "react-icons/md";
 const ChatContainer = () => {
   const {messages,selectedUser,setSelectedUser,sendMessage,getMessages}=useContext(ChatContext);
   const {authUser,onlineUsers}=useContext(AuthContext);
@@ -120,30 +119,6 @@ const ChatContainer = () => {
         </div>
         <img onClick={handleSendMessage} src={assets.send_button} alt='' className='w-7 cursor-pointer' />
       </div>
-        {/* Video Call Overlay */}
-        {inCall && (
-  <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
-    <video
-      ref={remoteVideoRef}
-      autoPlay
-      className="w-full h-full object-cover rounded-lg"
-    />
-    <video
-      ref={localVideoRef}
-      autoPlay
-      muted
-      className="absolute bottom-5 right-5 w-40 h-28 rounded-lg border-2 border-white"
-    />
-    <button
-      onClick={endCall}
-      className="absolute bottom-5 left-1/2 transform -translate-x-1/2 bg-red-600 text-white p-3 rounded-full"
-    >
-      End Call
-    </button>
-  </div>
-)}
-
-
     </div>
     
   ) : (
