@@ -48,7 +48,6 @@ const ChatContainer = () => {
           {onlineUsers.includes(selectedUser._id) && <span className="w-2 h-2 rounded-full bg-green-500"></span>}
         </p>
         <img onClick={() => setSelectedUser(null)} src={assets.arrow_icon} alt="" className='md:hidden max-w-7 cursor-pointer' />
-
         {selectedUser && <MdVideoCall className="text-white text-2xl cursor-pointer max-md:hidden" onClick={startCall}/>}
         <img src={assets.help_icon} alt="" className='max-md:hidden max-w-5' />
       </div>

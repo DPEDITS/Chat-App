@@ -58,48 +58,56 @@ export const ChatProvider = ({ children }) => {
     if (!authUser || !socket) return;
 
     const initPeer = async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localVideoRef.current.srcObject = stream;
-      localVideoRef.current.muted = true;
-      localVideoRef.current.play().catch(() => {});
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 
-      const peer = new Peer(authUser._id, {
-        host: window.location.hostname,
-        port: window.location.port,
-        path: "/peerjs",
-        secure: window.location.protocol === "https:",
-        config: {
-          iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" },
-          ],
-        },
-      });
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+          localVideoRef.current.muted = true;
+          localVideoRef.current.play().catch(() => {});
+        }
 
-      peerRef.current = peer;
-
-      peer.on("open", (id) => {
-        setPeerId(id);
-        socket.emit("updatePeerId", { userId: authUser._id, peerId: id });
-        console.log("Peer ready with ID:", id);
-      });
-
-      // Incoming PeerJS calls
-      peer.on("call", async (call) => {
-        const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        localVideoRef.current.srcObject = localStream;
-        localVideoRef.current.muted = true;
-        localVideoRef.current.play().catch(() => {});
-
-        call.answer(localStream);
-        call.on("stream", (remoteStream) => {
-          remoteVideoRef.current.srcObject = remoteStream;
-          remoteVideoRef.current.play().catch(() => {});
-          currentCallRef.current = call;
-          setInCall(true);
-          toast.success("Incoming call connected!");
+        const peer = new Peer(authUser._id, {
+          host: window.location.hostname,
+          port: window.location.port,
+          path: "/peerjs",
+          secure: window.location.protocol === "https:",
+          config: {
+            iceServers: [
+              { urls: "stun:stun.l.google.com:19302" },
+              { urls: "stun:stun1.l.google.com:19302" },
+            ],
+          },
         });
-      });
+
+        peerRef.current = peer;
+
+        peer.on("open", (id) => {
+          setPeerId(id);
+          socket.emit("updatePeerId", { userId: authUser._id, peerId: id });
+          console.log("Peer ready with ID:", id);
+        });
+
+        // Incoming call
+        peer.on("call", async (call) => {
+          try {
+            call.answer(stream);
+            call.on("stream", (remoteStream) => {
+              if (remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = remoteStream;
+                remoteVideoRef.current.play().catch(() => {});
+              }
+              currentCallRef.current = call;
+              setInCall(true);
+              toast.success("Incoming call connected!");
+            });
+          } catch (err) {
+            toast.error("Failed to answer call");
+          }
+        });
+      } catch (err) {
+        toast.error("Unable to access camera or microphone");
+      }
     };
 
     initPeer();
@@ -118,23 +126,30 @@ export const ChatProvider = ({ children }) => {
 
   const startCall = async () => {
     if (!selectedUser || !peerRef.current) return toast.error("Select a user to call");
-
     if (!selectedUser.peerId) return toast.error("User is not ready for call");
 
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localVideoRef.current.srcObject = stream;
-    localVideoRef.current.muted = true;
-    localVideoRef.current.play().catch(() => {});
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.muted = true;
+        localVideoRef.current.play().catch(() => {});
+      }
 
-    const call = peerRef.current.call(selectedUser.peerId, stream);
-    call.on("stream", (remoteStream) => {
-      remoteVideoRef.current.srcObject = remoteStream;
-      remoteVideoRef.current.play().catch(() => {});
-      currentCallRef.current = call;
-      setInCall(true);
-    });
+      const call = peerRef.current.call(selectedUser.peerId, stream);
+      call.on("stream", (remoteStream) => {
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream;
+          remoteVideoRef.current.play().catch(() => {});
+        }
+        currentCallRef.current = call;
+        setInCall(true);
+      });
 
-    call.on("close", () => endCall());
+      call.on("close", () => endCall());
+    } catch (err) {
+      toast.error("Failed to start call");
+    }
   };
 
   const endCall = () => {

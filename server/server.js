@@ -42,9 +42,17 @@ io.on("connection", (socket) => {
   // Send online users to everyone
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-  // Update Peer ID
+  // Store/update PeerJS ID
   socket.on("updatePeerId", ({ userId, peerId }) => {
     userPeerMap[userId] = peerId;
+  });
+
+  // Call another user
+  socket.on("callUser", ({ to, fromPeerId }) => {
+    const targetSocketId = userSocketMap[to];
+    if (targetSocketId) {
+      io.to(targetSocketId).emit("incomingCall", { fromPeerId });
+    }
   });
 
   // Call ended
