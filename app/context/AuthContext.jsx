@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { io } from "socket.io-client";
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
 axios.defaults.baseURL = backendUrl;
 
 export const AuthContext = createContext();
@@ -53,7 +54,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = async () => {
+  const logout = () => {
     localStorage.removeItem("token");
     setToken(null);
     setAuthUser(null);
@@ -80,6 +81,9 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const value = { axios, authUser, onlineUsers, socket, login, logout, updateProfile };
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ axios, authUser, onlineUsers, socket, login, logout, updateProfile }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
